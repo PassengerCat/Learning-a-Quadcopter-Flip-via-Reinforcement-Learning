@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual environments (kept outside the repo, but just in case)
+.venv/
+flip_env/
+venv/
+
+# Training artifacts (large; reproducible from code)
+runs/
+*.tb
+tensorboard/
+
+# The LAR fork simulator — NOT our code, cloned locally
+Quadcopter_SimCon/
+qsc/
