@@ -1,16 +1,15 @@
-# §03 training environment — confirmed working (validated on the real LAR sim)
-# Create:  python -m venv .venv && .venv\Scripts\activate   (Windows)
-#          pip install -r requirements.txt
-numpy<2            # REQUIRED: bobzwik integrator breaks on numpy 2.x
-scipy<1.13         # sim integrator compatibility
-gymnasium          # env API
-matplotlib         # imported by the fork's utils/display.py (needed to import the sim)
+# §03 — tested on the real course simulator (upatras-lar/Quadcopter_SimCon).
+# Python 3.11 or 3.12 (numpy<2 has no wheels for 3.13+):
+#   py -3.12 -m venv .venv && .venv\Scripts\activate        (Windows)
+#   pip install -r requirements.txt
+numpy<2                  # REQUIRED: the bobzwik dynamics break on numpy 2.x
+scipy<1.13               # sim integrator compatibility
+gymnasium>=0.29
+matplotlib               # imported by the fork's utils (and used for plots)
 stable-baselines3>=2.0   # PPO
-tensorboard        # logging (the eval callback writes here)
+torch                    # CPU build is enough: pip install torch --index-url https://download.pytorch.org/whl/cpu
+tensorboard              # training curves
+pytest                   # test suites
 
-# NOTE: the fork simulator (quad_velocity_env.py) is NOT a pip package. Clone it:
+# The simulator is NOT a pip package. Clone it and put these files in its Simulation/ folder:
 #   git clone https://github.com/upatras-lar/Quadcopter_SimCon
-# then point the code at its Simulation/ folder, either:
-#   set QUAD_SIM_DIR=...\Quadcopter_SimCon\Simulation      (Windows)
-#   export QUAD_SIM_DIR=.../Quadcopter_SimCon/Simulation   (bash)
-# or put that folder on PYTHONPATH.

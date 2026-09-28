@@ -11,23 +11,32 @@ hover. This module implements the reward architecture agreed in §03:
 
     r = r_shape  +  r_task  +  r_reg
 
-  r_shape : potential-based shaping (Ng, Harada & Russell 1999). Dense, provably
-            optimum-preserving. Drives rotation progress, then upright/hover.
-  r_task  : the sparse "true" objective -- one-off milestones + a dense hover-hold
-            bonus + a crash penalty.
-  r_reg   : regularizers -- action smoothness, off-axis-rate penalty, in-place
-            (L1 position) penalty, and an optional survival bonus (default 0).
+  r_shape : potential-based shaping (Ng, Harada & Russell 1999). Dense; drives
+            rotation progress (a tent: 0 -> w_rot at 360 deg, decreasing beyond),
+            then upright/hover in RECOVER.
+  r_task  : the "true" objective -- one-off milestones (inverted, full turn), a
+            bounded "new record" progress term (w_prog), dense post-flip terms
+            (b_hold: upright & slow cone; b_upright: smooth upright/slow pull) and a
+            crash penalty.
+  r_reg   : regularizers -- action smoothness (on the policy's own action),
+            off-axis rates, horizontal position, altitude drift, and a survival
+            bonus paid after the flip (alive_after_flip).
+
+Every term that differs from the first §03 design was added in response to a
+measured failure; see reward_log.md (runs 1-9).
 
 Design invariants (do NOT break):
   * The reward NEVER reads the success signal. `SuccessDetector` is a *separate*
     object; success is defined geometrically and independently (brief requirement).
-  * Phase transitions and success use a GEOMETRIC quaternion revolution count,
-    NOT the integrated body-rate angle -- so integration drift never corrupts a
-    decision. The integrated angle (alpha) is used only inside the forgiving
-    shaping potential.
+  * Rotation progress (shaping, milestones, phase, success) is measured
+    GEOMETRICALLY from the gravity direction in the body x-z plane
+    (`gravity_pitch_increment`): drift-free, and immune to coning, which fooled
+    both the integrated body rate and the body-y quaternion increment in run-4.
   * The shaping potential is a deterministic function of (augmented) state, so the
-    telescoping / policy-invariance argument holds. `alpha` (or its trig encoding)
-    must therefore be part of the policy observation.
+    telescoping argument holds for r_shape. `alpha` (or its trig encoding) must
+    therefore be part of the policy observation (flip_policy.FlipProgressTracker
+    reproduces it from raw observations). The w_prog / b_upright terms are NOT
+    potentials -- deliberate, bounded, goal-aligned exceptions (reward_log.md).
 
 State layout
 ------------
@@ -135,6 +144,33 @@ def incremental_pitch(q_prev: np.ndarray, q_curr: np.ndarray) -> float:
     return 2.0 * float(np.arctan2(dq[2], dq[0]))   # dq = [w, x, y, z] -> y is index 2
 
 
+def gravity_pitch_angle(q: np.ndarray) -> Optional[float]:
+    """Pitch angle of the vehicle measured from GRAVITY, in the body x-z plane:
+        theta = atan2(-gx, gz)      (0 upright, +-pi inverted, + = nose up)
+    Returns None when gravity is (almost) perpendicular to that plane (|g_xz| small,
+    e.g. rolled 90 deg), where the angle is undefined."""
+    g = projected_gravity(q)
+    if g[0] * g[0] + g[2] * g[2] < 0.09:          # |g_xz| < 0.3
+        return None
+    return float(np.arctan2(-g[0], g[2]))
+
+
+def gravity_pitch_increment(q_prev: np.ndarray, q_curr: np.ndarray) -> float:
+    """Signed change of `gravity_pitch_angle` between two consecutive attitudes.
+
+    Unlike integrating body rate q (or the body-y part of the quaternion delta),
+    this is a GEOMETRIC flip measure: it only accumulates 2*pi if gravity really
+    sweeps once around the body x-z plane, i.e. the vehicle goes upright ->
+    inverted -> upright about its pitch axis. Coning (tilted + yawing), which makes
+    integrated q grow without bound, leaves it oscillating around zero.
+    (Found in run-4: the policy 'earned' 9 rad of body-y rotation while never
+    tilting past 92 deg.)"""
+    a0, a1 = gravity_pitch_angle(q_prev), gravity_pitch_angle(q_curr)
+    if a0 is None or a1 is None:
+        return 0.0
+    return float((a1 - a0 + np.pi) % (2.0 * np.pi) - np.pi)
+
+
 # ----------------------------------------------------------------------------- #
 # State parsing
 # ----------------------------------------------------------------------------- #
@@ -202,6 +238,10 @@ class FlipRewardConfig:
     w_rot: float = 1.0                # height of the rotation-progress ramp (0 -> w_rot over 0..2pi)
     w_set: float = 1.0                # height of the settle (recover) term
     eps_full: float = 0.15            # margin (rad) below 2*pi that counts as "rotation complete"
+    over_rot_slope: float = 1.0       # beyond 2*pi the rotation potential DECREASES (tent):
+                                      # one extra full turn gives back the whole w_rot. 0 = old
+                                      # behaviour (flat cap). Added after run-1, whose policy
+                                      # learned to spin continuously ("spin-and-crash").
 
     # --- settle(s) Gaussian sharpness (per-quantity) ---
     k_g: float = 5.0                  # attitude  e^(-k_g * ||g - g_up||^2)
@@ -209,10 +249,26 @@ class FlipRewardConfig:
     k_w: float = 0.1                  # body-rate magnitude (softened vs 0.5)
     k_p: float = 1.0                  # horizontal position
 
+    # --- exploration aid: "new record" rotation progress (added after run-3) ---
+    w_prog: float = 1.0               # paid ONLY when alpha exceeds its previous episode maximum,
+                                      # capped at 2*pi -> total <= w_prog per episode; wobbling
+                                      # earns nothing twice. Not a potential (breaks strict policy
+                                      # invariance) but aligned with the goal: it rewards trying
+                                      # ever-larger rotations, which the potential alone does not
+                                      # (tilt-and-return nets zero shaping).
+
     # --- task (sparse-ish) ---
     b_inv: float = 0.5                # one-off, first time |revolution| passes pi (inverted)
     b_full: float = 2.0              # one-off, first time |revolution| passes 2*pi - eps_full
     b_hold: float = 1.0               # dense, per SECOND, while RECOVER & upright-cone & slow
+    b_upright: float = 1.0            # dense, per SECOND, in RECOVER: exp(-k_g|g-up|^2)*exp(-k_up_v|v|^2)
+    k_up_v: float = 0.05              #   *exp(-k_up_w|w|^2). Smooth pull towards upright & slow from
+    k_up_w: float = 0.02              #   ANY post-flip state (run-7 flew off tilted at 14 m/s: the
+                                      #   binary hold bonus gave no gradient that far from hover)
+    k_up_g: float = 5.0               # attitude sharpness inside b_upright (run-9 = k_g = 5; run-11
+                                      #   tried 2.0: holding position in wind needs ~10-15 deg of lean)
+    k_up_p: float = 0.0               # ... *exp(-k_up_p |xy - xy0|^2) "near where you started"
+                                      #   (run-9 = 0; run-11 tried 0.1 — see reward_log.md)
     b_crash: float = 5.0              # one-off penalty on unstable termination
 
     # thresholds for the *reward-internal* hold bonus (NOT the official success test)
@@ -221,10 +277,14 @@ class FlipRewardConfig:
     hold_w_thr: float = 1.0           # rad/s
 
     # --- regularizers ---
-    lam_dact: float = 0.02            # action-smoothness ||a_t - a_{t-1}||^2 (per decision)
+    lam_dact: float = 0.005           # action-smoothness ||a_t - a_{t-1}||^2 (per decision);
+                                      # 0.02 made exploration noise alone cost ~3.5/episode (run-3)
     lam_off: float = 0.01             # off-axis rate penalty (p^2 + r^2), per SECOND
     lam_pos: float = 0.005            # in-place L1 horizontal position, per SECOND
+    lam_z: float = 0.05               # altitude drift |z - z0|, per SECOND (run-3 policy climbed out)
     s_alive: float = 0.0              # survival bonus per SECOND (first run = 0; ablate {0,0.005,0.02})
+    alive_after_flip: bool = False    # pay s_alive only in RECOVER: hovering WITHOUT flipping then
+                                      # earns nothing (run-5 settled on exactly that)
 
     def validate(self) -> None:
         assert self.dt > 0 and self.gamma > 0
@@ -257,11 +317,14 @@ class FlipReward:
 
     # -- episode lifecycle ---------------------------------------------------- #
     def reset(self) -> None:
-        self._alpha = 0.0             # integrated pitch angle  (shaping)
-        self._rev = 0.0               # quaternion revolution count (phase transitions)
+        self._alpha = 0.0             # geometric flip angle (gravity-based), used by the shaping
+        self._rev = 0.0               # same measure, used for phase transitions / milestones
         self._phi_prev: Optional[float] = None
         self._q_prev: Optional[np.ndarray] = None
         self._prev_action: Optional[np.ndarray] = None
+        self._max_alpha = 0.0         # episode maximum of alpha (for w_prog)
+        self._z0: Optional[float] = None
+        self._xy0: Optional[np.ndarray] = None     # start position (for b_upright "home")
         self._phase = _FLIP
         self._hit_inv = False         # milestone latch: passed pi
         self._hit_full = False        # milestone latch: passed 2pi - eps
@@ -272,6 +335,10 @@ class FlipReward:
         self._last_gz = 1.0
         self._last_speed = 0.0
         self._last_wnorm = 0.0
+        # When the policy does not command the motors directly (CTBR), the wrapper sets
+        # the policy's own action here so the smoothness term penalises what the
+        # policy controls, not the inner loop's motor activity.
+        self.smooth_action: Optional[np.ndarray] = None
 
     # -- main hook ------------------------------------------------------------ #
     def __call__(self, target_velocity, full_state, action, env=None) -> float:
@@ -279,12 +346,14 @@ class FlipReward:
         dt = float(getattr(env, "dt", cfg.dt))
         sv = StateView(full_state, env)
         d = cfg.flip_direction
+        if self._xy0 is None:
+            self._xy0 = np.array(sv.pos[0:2], dtype=float)
 
-        # --- accumulate the two rotation measures --------------------------- #
-        pitch_rate = float(sv.omega[1])                    # body-y rate q
-        self._alpha += d * pitch_rate * dt                 # integral (shaping)
+        # --- accumulate the geometric flip angle ----------------------------- #
         if self._q_prev is not None:
-            self._rev += d * incremental_pitch(self._q_prev, sv.quat)  # geometric (decisions)
+            inc = d * gravity_pitch_increment(self._q_prev, sv.quat)
+            self._rev += inc
+            self._alpha = self._rev
         self._q_prev = sv.quat.copy()
 
         # cache geometry for logging / the eval-time success check (not used by r)
@@ -309,6 +378,10 @@ class FlipReward:
 
         # --- task ----------------------------------------------------------- #
         r_task = 0.0
+        new_max = min(max(self._max_alpha, self._alpha), 2.0 * np.pi)
+        if new_max > self._max_alpha:
+            r_task += cfg.w_prog * (new_max - self._max_alpha) / (2.0 * np.pi)
+            self._max_alpha = new_max
         # milestones fire exactly once (the latches were just set above)
         if self._hit_inv and not getattr(self, "_paid_inv", False):
             r_task += cfg.b_inv
@@ -324,13 +397,20 @@ class FlipReward:
                     and np.linalg.norm(sv.omega) < cfg.hold_w_thr)
             if upright and slow:
                 r_task += cfg.b_hold * dt
+            if cfg.b_upright:
+                att = np.exp(-cfg.k_up_g * float(np.sum((g - _UP) ** 2)))
+                home = np.exp(-cfg.k_up_p * float(np.sum((sv.pos[0:2] - self._xy0) ** 2)))
+                r_task += cfg.b_upright * dt * att * home \
+                    * np.exp(-cfg.k_up_v * float(np.sum(sv.vel ** 2))) \
+                    * np.exp(-cfg.k_up_w * float(np.sum(sv.omega ** 2)))
         # crash penalty (paid once); env exposes termination via _is_unstable/terminated
         if not self._done_latched and _is_terminated(env):
             r_task -= cfg.b_crash
             self._done_latched = True
 
         # --- regularizers --------------------------------------------------- #
-        act = np.asarray(action, dtype=float).ravel()
+        act = np.asarray(action if self.smooth_action is None else self.smooth_action,
+                         dtype=float).ravel()
         if self._prev_action is None:
             self._prev_action = act.copy()
         # action-smoothness: within an action-repeat block the action is constant,
@@ -342,7 +422,11 @@ class FlipReward:
         p, r_yaw = float(sv.omega[0]), float(sv.omega[2])
         r_reg += -cfg.lam_off * (p * p + r_yaw * r_yaw) * dt
         r_reg += -cfg.lam_pos * float(np.sum(np.abs(sv.pos[0:2]))) * dt
-        r_reg += cfg.s_alive * dt
+        if self._z0 is None:
+            self._z0 = float(sv.pos[2])
+        r_reg += -cfg.lam_z * abs(float(sv.pos[2]) - self._z0) * dt
+        if not cfg.alive_after_flip or self._phase == _RECOVER:
+            r_reg += cfg.s_alive * dt
 
         total = r_shape + r_task + r_reg
         if not np.isfinite(total):     # defensive: never poison the buffer
@@ -352,8 +436,12 @@ class FlipReward:
     # -- potential ------------------------------------------------------------ #
     def _potential(self, sv: StateView) -> float:
         cfg = self.cfg
-        # rotation-progress ramp, capped at 2*pi (no reward for extra spin)
-        rot = cfg.w_rot * np.clip(self._alpha, 0.0, 2.0 * np.pi) / (2.0 * np.pi)
+        # rotation-progress ramp 0..2pi, then a tent: extra spin is paid back
+        a, two_pi = self._alpha, 2.0 * np.pi
+        if a <= two_pi:
+            rot = cfg.w_rot * max(a, 0.0) / two_pi
+        else:
+            rot = cfg.w_rot * max(0.0, 1.0 - cfg.over_rot_slope * (a - two_pi) / two_pi)
         # settle only contributes in RECOVER
         if self._phase == _RECOVER:
             rot += cfg.w_set * self._settle(sv)
@@ -427,13 +515,15 @@ class SuccessConfig:
     v_thr: float = 0.4                         # m/s
     w_thr: float = 0.8                         # rad/s
     hold_steps: int = 20                       # consecutive decisions the criterion must hold
+    inverted_tilt_rad: float = np.deg2rad(150.0)   # must pass through at least this tilt
 
 
 class SuccessDetector:
     """
-    Geometric, reward-independent success test. Uses the quaternion revolution
-    count (drift-free), NOT the integrated body-rate angle. Success = a full
-    signed revolution occurred AND the vehicle then holds upright + slow for
+    Geometric, reward-independent success test. Success = the gravity direction
+    swept a full signed revolution in the body x-z plane (gravity_pitch_increment:
+    drift-free and immune to coning), the vehicle passed through an inverted
+    attitude (tilt >= inverted_tilt_rad), AND it then holds upright + slow for
     `hold_steps` consecutive updates.
 
     Call once per decision (post action-repeat) with the same `full_state`/`env`
@@ -448,6 +538,7 @@ class SuccessDetector:
         self._rev = 0.0
         self._q_prev: Optional[np.ndarray] = None
         self._rev_done = False
+        self._inverted = False
         self._hold = 0
         self._succeeded = False
 
@@ -455,10 +546,12 @@ class SuccessDetector:
         cfg = self.cfg
         sv = StateView(full_state, env)
         if self._q_prev is not None:
-            self._rev += cfg.flip_direction * incremental_pitch(self._q_prev, sv.quat)
+            self._rev += cfg.flip_direction * gravity_pitch_increment(self._q_prev, sv.quat)
         self._q_prev = sv.quat.copy()
+        if tilt_angle(float(projected_gravity(sv.quat)[2])) >= cfg.inverted_tilt_rad:
+            self._inverted = True
 
-        if not self._rev_done and self._rev >= cfg.full_rev_rad:
+        if not self._rev_done and self._rev >= cfg.full_rev_rad and self._inverted:
             self._rev_done = True
 
         if self._rev_done:
@@ -481,6 +574,10 @@ class SuccessDetector:
     @property
     def revolution(self) -> float:
         return self._rev
+
+    @property
+    def passed_inverted(self) -> bool:
+        return self._inverted
 
 
 # ----------------------------------------------------------------------------- #
