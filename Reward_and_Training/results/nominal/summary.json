@@ -1,0 +1,237 @@
+{
+  "meta": {
+    "episodes": 50,
+    "seed0": 10000,
+    "action_repeat": 4,
+    "action_noise": 0.05,
+    "obs_noise": 0.0,
+    "quick_tolerances": {
+      "min_rotation_deg": 330.0,
+      "inverted_tilt_deg": 150.0,
+      "final_tilt_deg": 15.0,
+      "final_rate": 1.0,
+      "max_alt_loss_m": 3.0,
+      "settle_window_s": 0.5
+    },
+    "scripted_params": {
+      "axis": "pitch",
+      "direction": 1,
+      "settle_time": 0.5,
+      "climb_time": 0.3,
+      "climb_thrust_frac": 0.9,
+      "pulse_torque_frac": 1.0,
+      "pulse_time": 0.06,
+      "flip_thrust_frac": 0.2,
+      "brake_angle_deg": 280.0,
+      "brake_torque_frac": 0.8,
+      "brake_time": 0.08,
+      "handoff_angle_deg": 320.0,
+      "handoff_tilt_deg": 60.0,
+      "off_axis_damping": 0.15,
+      "max_flip_time": 1.5
+    },
+    "control_dt": 0.02
+  },
+  "results": {
+    "random": {
+      "episodes": 50,
+      "success_rate": 0.0,
+      "success_ci95": [
+        0.0,
+        0.07135003417431873
+      ],
+      "success_detector_rate": 0.0,
+      "success_detector_ci95": [
+        0.0,
+        0.07135003417431873
+      ],
+      "rotation_deg": {
+        "mean": -48.2364025167338,
+        "std": 405.72807077864104,
+        "n": 50
+      },
+      "final_tilt_deg": {
+        "mean": 94.36308871243392,
+        "std": 18.177523304772404,
+        "n": 50
+      },
+      "final_rate": {
+        "mean": 11.515996693295811,
+        "std": 5.4546608612529495,
+        "n": 50
+      },
+      "altitude_loss_m": {
+        "mean": 5.021171084069064,
+        "std": 0.013203737786594187,
+        "n": 50
+      },
+      "time_to_recover_s": {
+        "mean": null,
+        "std": null,
+        "n": 0
+      },
+      "control_effort": {
+        "mean": 1.3460306119918823,
+        "std": 0.09238967960468936,
+        "n": 50
+      },
+      "episode_s": {
+        "mean": 1.3336,
+        "std": 0.13719708451712814,
+        "n": 50
+      },
+      "termination_rate": 1.0,
+      "wall_s": 52.0598680973053
+    },
+    "pid_hover": {
+      "episodes": 50,
+      "success_rate": 0.0,
+      "success_ci95": [
+        0.0,
+        0.07135003417431873
+      ],
+      "success_detector_rate": 0.0,
+      "success_detector_ci95": [
+        0.0,
+        0.07135003417431873
+      ],
+      "rotation_deg": {
+        "mean": -0.022396245590325423,
+        "std": 1.086054654534597,
+        "n": 50
+      },
+      "final_tilt_deg": {
+        "mean": 1.5533703625039366,
+        "std": 0.3923217829209589,
+        "n": 50
+      },
+      "final_rate": {
+        "mean": 0.30875587933152504,
+        "std": 0.07251311678482959,
+        "n": 50
+      },
+      "altitude_loss_m": {
+        "mean": 0.019085538559011184,
+        "std": 0.00394939780194139,
+        "n": 50
+      },
+      "time_to_recover_s": {
+        "mean": null,
+        "std": null,
+        "n": 0
+      },
+      "control_effort": {
+        "mean": 0.013231211602687835,
+        "std": 0.0004461385331611099,
+        "n": 50
+      },
+      "episode_s": {
+        "mean": 10.0,
+        "std": 0.0,
+        "n": 50
+      },
+      "termination_rate": 0.0,
+      "wall_s": 383.1093497276306
+    },
+    "scripted_flip": {
+      "episodes": 50,
+      "success_rate": 1.0,
+      "success_ci95": [
+        0.9286499658256813,
+        1.0
+      ],
+      "success_detector_rate": 1.0,
+      "success_detector_ci95": [
+        0.9286499658256813,
+        1.0
+      ],
+      "rotation_deg": {
+        "mean": 359.9419199127328,
+        "std": 1.097532633668375,
+        "n": 50
+      },
+      "final_tilt_deg": {
+        "mean": 1.567918482476135,
+        "std": 0.4041369509475702,
+        "n": 50
+      },
+      "final_rate": {
+        "mean": 0.3083362859362147,
+        "std": 0.07520539327681175,
+        "n": 50
+      },
+      "altitude_loss_m": {
+        "mean": 0.005254974760464393,
+        "std": 0.0031800647678602006,
+        "n": 50
+      },
+      "time_to_recover_s": {
+        "mean": 0.39640000000000003,
+        "std": 0.0637105956650854,
+        "n": 50
+      },
+      "control_effort": {
+        "mean": 0.2161939436197281,
+        "std": 0.004486457570047323,
+        "n": 50
+      },
+      "episode_s": {
+        "mean": 10.0,
+        "std": 0.0,
+        "n": 50
+      },
+      "termination_rate": 0.0,
+      "wall_s": 304.75446248054504
+    },
+    "ppo_flip": {
+      "episodes": 50,
+      "success_rate": 1.0,
+      "success_ci95": [
+        0.9286499658256813,
+        1.0
+      ],
+      "success_detector_rate": 1.0,
+      "success_detector_ci95": [
+        0.9286499658256813,
+        1.0
+      ],
+      "rotation_deg": {
+        "mean": 359.5348168101786,
+        "std": 0.5267352980882382,
+        "n": 50
+      },
+      "final_tilt_deg": {
+        "mean": 0.6218612993836158,
+        "std": 0.15551166333830463,
+        "n": 50
+      },
+      "final_rate": {
+        "mean": 0.1585062926936924,
+        "std": 0.021593716593729773,
+        "n": 50
+      },
+      "altitude_loss_m": {
+        "mean": 0.001206945605808869,
+        "std": 0.0015691956142529506,
+        "n": 50
+      },
+      "time_to_recover_s": {
+        "mean": 0.5108,
+        "std": 0.009967948635501699,
+        "n": 50
+      },
+      "control_effort": {
+        "mean": 0.20828520029783248,
+        "std": 0.004500260964013607,
+        "n": 50
+      },
+      "episode_s": {
+        "mean": 10.0,
+        "std": 0.0,
+        "n": 50
+      },
+      "termination_rate": 0.0,
+      "wall_s": 359.981422662735
+    }
+  }
+}

@@ -1,0 +1,87 @@
+{
+  "meta": {
+    "episodes": 20,
+    "seed0": 10000,
+    "action_repeat": 4,
+    "action_noise": 0.15,
+    "obs_noise": 0.2,
+    "quick_tolerances": {
+      "min_rotation_deg": 330.0,
+      "inverted_tilt_deg": 150.0,
+      "final_tilt_deg": 15.0,
+      "final_rate": 1.0,
+      "max_alt_loss_m": 3.0,
+      "settle_window_s": 0.5
+    },
+    "scripted_params": {
+      "axis": "pitch",
+      "direction": 1,
+      "settle_time": 0.5,
+      "climb_time": 0.3,
+      "climb_thrust_frac": 0.9,
+      "pulse_torque_frac": 1.0,
+      "pulse_time": 0.06,
+      "flip_thrust_frac": 0.2,
+      "brake_angle_deg": 280.0,
+      "brake_torque_frac": 0.8,
+      "brake_time": 0.08,
+      "handoff_angle_deg": 320.0,
+      "handoff_tilt_deg": 60.0,
+      "off_axis_damping": 0.15,
+      "max_flip_time": 1.5
+    },
+    "control_dt": 0.02
+  },
+  "results": {
+    "ppo_flip": {
+      "episodes": 20,
+      "success_rate": 0.45,
+      "success_ci95": [
+        0.25819502085709295,
+        0.6579179916924003
+      ],
+      "success_detector_rate": 0.3,
+      "success_detector_ci95": [
+        0.14547527396899385,
+        0.5189767762289793
+      ],
+      "rotation_deg": {
+        "mean": 361.2102479881401,
+        "std": 3.731867553789694,
+        "n": 20
+      },
+      "final_tilt_deg": {
+        "mean": 4.515177348353231,
+        "std": 1.4044490717427471,
+        "n": 20
+      },
+      "final_rate": {
+        "mean": 0.976712390752119,
+        "std": 0.2161652563960242,
+        "n": 20
+      },
+      "altitude_loss_m": {
+        "mean": 0.13313301948073786,
+        "std": 0.04215478794717061,
+        "n": 20
+      },
+      "time_to_recover_s": {
+        "mean": 3.122105263157895,
+        "std": 1.534925264586858,
+        "n": 19
+      },
+      "control_effort": {
+        "mean": 0.3807495817542076,
+        "std": 0.013787950802544838,
+        "n": 20
+      },
+      "episode_s": {
+        "mean": 10.0,
+        "std": 0.0,
+        "n": 20
+      },
+      "termination_rate": 0.0,
+      "wall_s": 210.203045129776
+    }
+  }
+}

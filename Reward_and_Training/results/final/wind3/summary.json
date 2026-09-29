@@ -1,0 +1,313 @@
+{
+  "meta": {
+    "episodes": 20,
+    "seed0": 10000,
+    "action_repeat": 4,
+    "action_noise": 0.0,
+    "obs_noise": 0.0,
+    "wind": 3.0,
+    "quick_tolerances": {
+      "min_rotation_deg": 330.0,
+      "inverted_tilt_deg": 150.0,
+      "final_tilt_deg": 15.0,
+      "final_rate": 1.0,
+      "max_alt_loss_m": 3.0,
+      "settle_window_s": 0.5
+    },
+    "scripted_params": {
+      "axis": "pitch",
+      "direction": 1,
+      "settle_time": 0.5,
+      "climb_time": 0.3,
+      "climb_thrust_frac": 0.9,
+      "pulse_torque_frac": 1.0,
+      "pulse_time": 0.06,
+      "flip_thrust_frac": 0.2,
+      "brake_angle_deg": 280.0,
+      "brake_torque_frac": 0.8,
+      "brake_time": 0.08,
+      "handoff_angle_deg": 320.0,
+      "handoff_tilt_deg": 60.0,
+      "off_axis_damping": 0.15,
+      "max_flip_time": 1.5
+    },
+    "control_dt": 0.02
+  },
+  "results": {
+    "random": {
+      "episodes": 20,
+      "success_rate": 0.0,
+      "success_ci95": [
+        0.0,
+        0.16113012549493322
+      ],
+      "success_detector_rate": 0.0,
+      "success_detector_ci95": [
+        0.0,
+        0.16113012549493322
+      ],
+      "rotation_deg": {
+        "mean": -51.14818991658636,
+        "std": 405.01455578333736,
+        "n": 20
+      },
+      "final_tilt_deg": {
+        "mean": 100.36683535686971,
+        "std": 23.04318767902056,
+        "n": 20
+      },
+      "final_rate": {
+        "mean": 12.129049742646057,
+        "std": 6.3737614679775545,
+        "n": 20
+      },
+      "altitude_loss_m": {
+        "mean": 5.02131878582004,
+        "std": 0.013665852500224148,
+        "n": 20
+      },
+      "time_to_recover_s": {
+        "mean": null,
+        "std": null,
+        "n": 0
+      },
+      "control_effort": {
+        "mean": 1.366053855419159,
+        "std": 0.09324625165055393,
+        "n": 20
+      },
+      "episode_s": {
+        "mean": 1.311,
+        "std": 0.1310686842842332,
+        "n": 20
+      },
+      "final_xy_drift_m": {
+        "mean": 1.9093193309946006,
+        "std": 1.0310985100446992,
+        "n": 20
+      },
+      "termination_rate": 1.0,
+      "wall_s": 21.819846153259277
+    },
+    "pid_hover": {
+      "episodes": 20,
+      "success_rate": 0.0,
+      "success_ci95": [
+        0.0,
+        0.16113012549493322
+      ],
+      "success_detector_rate": 0.0,
+      "success_detector_ci95": [
+        0.0,
+        0.16113012549493322
+      ],
+      "rotation_deg": {
+        "mean": -0.052710435920714706,
+        "std": 1.5970555372245736,
+        "n": 20
+      },
+      "final_tilt_deg": {
+        "mean": 1.2858688937098128,
+        "std": 0.9436805514152936,
+        "n": 20
+      },
+      "final_rate": {
+        "mean": 0.04131830480505329,
+        "std": 0.009897599108421133,
+        "n": 20
+      },
+      "altitude_loss_m": {
+        "mean": 0.008048392561613582,
+        "std": 0.0011882205961232292,
+        "n": 20
+      },
+      "time_to_recover_s": {
+        "mean": null,
+        "std": null,
+        "n": 0
+      },
+      "control_effort": {
+        "mean": 0.00026844374369829895,
+        "std": 4.8790196354994125e-05,
+        "n": 20
+      },
+      "episode_s": {
+        "mean": 10.0,
+        "std": 0.0,
+        "n": 20
+      },
+      "final_xy_drift_m": {
+        "mean": 0.013507979498792084,
+        "std": 0.008360015631383824,
+        "n": 20
+      },
+      "termination_rate": 0.0,
+      "wall_s": 167.19333672523499
+    },
+    "scripted_flip": {
+      "episodes": 20,
+      "success_rate": 1.0,
+      "success_ci95": [
+        0.8388698745050667,
+        1.0
+      ],
+      "success_detector_rate": 1.0,
+      "success_detector_ci95": [
+        0.8388698745050667,
+        1.0
+      ],
+      "rotation_deg": {
+        "mean": 359.9350601262689,
+        "std": 1.593821903588444,
+        "n": 20
+      },
+      "final_tilt_deg": {
+        "mean": 1.2989620376682127,
+        "std": 0.9422717686614429,
+        "n": 20
+      },
+      "final_rate": {
+        "mean": 0.041276856729471595,
+        "std": 0.009743576226756758,
+        "n": 20
+      },
+      "altitude_loss_m": {
+        "mean": 0.003689899932942353,
+        "std": 0.002206979485486633,
+        "n": 20
+      },
+      "time_to_recover_s": {
+        "mean": 0.42699999999999994,
+        "std": 0.06964912059746335,
+        "n": 20
+      },
+      "control_effort": {
+        "mean": 0.2108262784779072,
+        "std": 0.002459083974730425,
+        "n": 20
+      },
+      "episode_s": {
+        "mean": 10.0,
+        "std": 0.0,
+        "n": 20
+      },
+      "final_xy_drift_m": {
+        "mean": 0.1330971287343102,
+        "std": 0.052894752746060016,
+        "n": 20
+      },
+      "termination_rate": 0.0,
+      "wall_s": 163.78407740592957
+    },
+    "ppo_flip": {
+      "episodes": 20,
+      "success_rate": 1.0,
+      "success_ci95": [
+        0.8388698745050667,
+        1.0
+      ],
+      "success_detector_rate": 1.0,
+      "success_detector_ci95": [
+        0.8388698745050667,
+        1.0
+      ],
+      "rotation_deg": {
+        "mean": 359.0870139196595,
+        "std": 1.5270754168307736,
+        "n": 20
+      },
+      "final_tilt_deg": {
+        "mean": 0.9797998885779492,
+        "std": 0.8560013719683583,
+        "n": 20
+      },
+      "final_rate": {
+        "mean": 0.11226241858081085,
+        "std": 0.043464944494931476,
+        "n": 20
+      },
+      "altitude_loss_m": {
+        "mean": 0.0009394115579198115,
+        "std": 0.0012753245817152304,
+        "n": 20
+      },
+      "time_to_recover_s": {
+        "mean": 0.507,
+        "std": 0.009539392014169465,
+        "n": 20
+      },
+      "control_effort": {
+        "mean": 0.19882436394691466,
+        "std": 0.0010258229188427515,
+        "n": 20
+      },
+      "episode_s": {
+        "mean": 10.0,
+        "std": 0.0,
+        "n": 20
+      },
+      "final_xy_drift_m": {
+        "mean": 1.0410800348531475,
+        "std": 0.5851522871150201,
+        "n": 20
+      },
+      "termination_rate": 0.0,
+      "wall_s": 243.8874216079712
+    },
+    "ppo_flip+pid": {
+      "episodes": 20,
+      "success_rate": 1.0,
+      "success_ci95": [
+        0.8388698745050667,
+        1.0
+      ],
+      "success_detector_rate": 1.0,
+      "success_detector_ci95": [
+        0.8388698745050667,
+        1.0
+      ],
+      "rotation_deg": {
+        "mean": 359.49748881526466,
+        "std": 1.6339384946190942,
+        "n": 20
+      },
+      "final_tilt_deg": {
+        "mean": 1.2987106805730881,
+        "std": 0.9420025604043969,
+        "n": 20
+      },
+      "final_rate": {
+        "mean": 0.04125998664111511,
+        "std": 0.009753363701076392,
+        "n": 20
+      },
+      "altitude_loss_m": {
+        "mean": 0.017845155039685777,
+        "std": 0.0047178400021402325,
+        "n": 20
+      },
+      "time_to_recover_s": {
+        "mean": 0.9620000000000003,
+        "std": 0.012489995996796809,
+        "n": 20
+      },
+      "control_effort": {
+        "mean": 0.23879288583993913,
+        "std": 0.00235169853057123,
+        "n": 20
+      },
+      "episode_s": {
+        "mean": 10.0,
+        "std": 0.0,
+        "n": 20
+      },
+      "final_xy_drift_m": {
+        "mean": 0.013747970578010735,
+        "std": 0.010004482916164587,
+        "n": 20
+      },
+      "termination_rate": 0.0,
+      "wall_s": 173.4467649459839
+    }
+  }
+}
