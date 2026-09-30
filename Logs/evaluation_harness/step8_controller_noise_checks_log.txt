@@ -1,0 +1,26 @@
+Stress condition 4: controller-side action and gyro noise, PPO-track definition (cloud, temporary test script deleted after passing; no training)
+
+1) NOMINAL, OBS_NOISE, WIND, PERTURBED_START identical to the previous harness (seeds 0, 2) (33 s)
+2) negative / NaN / inf noise rejected; STRESS = action 0.15, gyro 0.2 rad/s (the PPO track's stress point)
+3) noise sequence equals default_rng(SeedSequence([12345, seed])) drawn per 20 ms decision (gyro 3, action 4), held for 4 steps; the applied command is clip(action + noise) (saturates at 1); only obs[13:16] is perturbed, position/quaternion/velocity are the true state
+4) STRESS over 4 s: action noise std 0.149 (0.15), gyro noise std 0.196 (0.2), constant within each 4-step block
+5) same seed -> identical episode in either order; seeds differ; global numpy/Python RNGs untouched
+6) informative: default     under ppo_nominal: 0/10  final |w| mean 0.30  failures ['FAIL: exceeded one-flip rotation/travel budget']
+6) informative: default     under stress     : 0/10  final |w| mean 0.99  failures ['FAIL: exceeded one-flip rotation/travel budget', 'FAIL: never inverted (min gz=-0.92)', 'FAIL: never inverted (min gz=-0.98)']
+6) informative: ME2_s1:4,5  under ppo_nominal: 0/10  final |w| mean 0.29  failures ['FAIL: exceeded one-flip rotation/travel budget']
+6) informative: ME2_s1:4,5  under stress     : 0/10  final |w| mean 0.82  failures ['FAIL: exceeded one-flip rotation/travel budget', 'FAIL: never inverted (min gz=-0.93)', 'FAIL: never inverted (min gz=-0.97)', 'FAIL: never inverted (min gz=-0.98)']
+6) informative: ME2_s2:5,7  under ppo_nominal: 0/10  final |w| mean 0.28  failures ['FAIL: exceeded one-flip rotation/travel budget']
+6) informative: ME2_s2:5,7  under stress     : 0/10  final |w| mean 0.79  failures ['FAIL: exceeded one-flip rotation/travel budget', 'FAIL: never inverted (min gz=-0.93)', 'FAIL: never inverted (min gz=-0.97)', 'FAIL: never inverted (min gz=-0.98)']
+ALL CONTROLLER-NOISE CHECKS PASSED
+
+Diagnosis of the informative 0/10 results (default flip, 10 s episodes, seeds 0 and 1):
+  condition        net rev   max rev   pitch travel: before / during flip / after completion   total
+  nominal          360.0     362.7                   10.9  / 341.7       / 16.5               369.2  -> success
+  action 0.05      360.7     364.3                   13.3  / 341.3       / 128.0              482.6  -> FAIL (travel > 420)
+  action 0.05      355.4     363.7                   10.9  / 341.5       / 112.1              464.4
+  STRESS           358.0     371.1                   12.4  / 341.1       / 303.8              657.3
+  STRESS           363.2     369.2                   36.9  / 339.7       / 310.9              687.5
+The flip itself is a clean single turn (net ~360 deg, max revolution <= 371 deg). The failures come from the
+§04 pitch-travel budget (420 deg over the WHOLE episode): noise-induced hover jitter after the flip adds
+110-310 deg of |pitch| travel in the remaining ~8 s. This is a detector-definition issue (open question noted
+earlier), not a controller failure; it must be decided before any noise comparison.

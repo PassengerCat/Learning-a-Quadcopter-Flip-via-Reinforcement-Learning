@@ -1,0 +1,10 @@
+Stress condition 1: observation noise (cloud, temporary test script deleted after passing; no training)
+
+1) default Condition = nominal: default flip, seeds 0 and 3, 5 s and 10 s, identical EpisodeResults to the previous harness; all noise groups 0 (32 s)
+2) OBS_NOISE uses exactly the simulator's defaults {'target': 0.0, 'pos': 0.002, 'z': 0.002, 'quat': 0.001, 'vel': 0.02, 'omega': 0.005, 'motor': 1.0}; scale 2 doubles every group; negative/NaN/inf scales rejected
+3) 2000 steps at hover: observed-minus-true std / configured std = pos 1.017, quat 0.863, vel 0.988, omega 1.004, motor 0.978 (quat expected sqrt(3/4)=0.866: the simulator re-normalises the noisy quaternion); means ~0; target exact
+4) open-loop controller (ignores observations): nominal and 3x noise give identical results and true-state trajectories (verdict 'FAIL: crashed (unstable termination)') -> noise enters only through the controller
+5) noise: same seed -> identical episode (also alone and in reverse order); seeds 0/1 differ (effort 1.1189 vs 1.1194; nominal 1.1172); global numpy RNG untouched
+6) run_episode with an explicit env uses that env's noise; `condition` applies only when no env is passed
+7) informative: default three-phase flip under OBS_NOISE, 10 s, seeds 0-9: 10/10 successes; reasons ['SUCCESS: flip + final upright hover, no crash, in region.'] (69 s)
+ALL OBSERVATION-NOISE CHECKS PASSED

@@ -1,0 +1,33 @@
+Harness step 12: the PPO track's detector judges every episode alongside §04 (cloud, temporary check scripts deleted after passing; no training)
+
+Wiring: her SuccessDetector is reset and updated at the start state, then once per decision
+(env.steps % 4 == 0) and at the last state, reading the true simulator state (env.quad), as in
+her pipeline. Result in EpisodeResult.ppo_track; EpisodeResult.success stays the §04 verdict.
+
+A1 new harness == old harness on this machine: 27/27 episodes, every EpisodeResult field bit-identical (verdict, reason, detector dict, metrics)
+   (map_elites_final, three_phase_default, scripted_flip x nominal, action_noise_005, stress x seeds 0, 17, 49)
+A2 vs FINAL (run on the user's Windows machine): same verdict, failure mode and termination 27/27; metrics differ at most 3.3e-07 (relative) = cross-platform floating point
+   (checked: the unchanged harness gives the same Linux value, e.g. final |w| 5.1848250671283836e-05 vs 5.18482506917671e-05 in FINAL)
+
+B  parity with her published scripted_flip results (Reward_and_Training/results/final, seeds 10000-10019, 10 s, 50 Hz decisions)
+   Her env keeps the simulator's default observation noise (make_flip_env passes observation_noise_std=None);
+   our action_noise_005 / stress conditions switch it off. Both variants:
+
+   without simulator sensor noise (our FINAL conditions):
+     stress            her detector 5/20 (25%)     her table 20%
+     action_noise_005  her detector 20/20 (100%)   her table 100%
+   with simulator sensor noise (obs_noise_scale = 1, her conditions):
+     stress            her detector 4/20 (20%), rotation 361 ± 3     her table 20%, 361 ± 3
+       per seed: her detector [0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0]
+                 §04 detector [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+     action_noise_005  her detector 20/20 (100%), rotation 360 ± 1   her table 100%, 360 ± 1
+       per seed: her detector [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+                 §04 detector [1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+
+B2 same episodes (with sensor noise), final state with her metric definition (mean of the last 0.5 s at 50 Hz):
+   stress            final tilt 4.7 ± 1.5, final |w| 0.95 ± 0.22  | her table: 4.7 ± 1.5, 0.95 ± 0.22
+   action_noise_005  final tilt 1.5 ± 0.4, final |w| 0.32 ± 0.08  | her table: 1.6 ± 0.4, 0.32 ± 0.08
+   (our harness reports the last sample instead, e.g. stress 4.3 ± 2.2 and 0.84 ± 0.40: a definition difference, not a different episode)
+
+=> with the simulator's sensor noise on, harness + her detector reproduces her published scripted_flip numbers.
+ALL STEP-12 CHECKS PASSED

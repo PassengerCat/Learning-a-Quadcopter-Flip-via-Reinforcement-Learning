@@ -1,0 +1,20 @@
+hover          {'success': False, 'terminated': False, 'duration_s': 10.0, 'final_tilt_deg': 0.0, 'final_omega': 0.0, 'max_alt_loss_m': 0.0, 't_flip_s': None, 't_recovered_s': None, 'control_effort': 0.0}
+motors off     {'success': False, 'terminated': True, 'duration_s': 1.12, 'final_tilt_deg': 0.0, 'final_omega': 0.0, 'max_alt_loss_m': 5.0105, 't_flip_s': None, 't_recovered_s': None, 'control_effort': 4.9777}
+   effort by hand 4*(1+0.0541)^2*1.120 = 4.9777; drop ~5 m: 5.010
+scripted flip  {'success': True, 'terminated': False, 'duration_s': 10.0, 'final_tilt_deg': 0.0025, 'final_omega': 0.0, 'max_alt_loss_m': 0.0, 't_flip_s': 0.605, 't_recovered_s': 0.835, 'control_effort': 1.1172}
+   reason: SUCCESS: flip + final upright hover, no crash, in region.
+random verdicts unchanged vs step 1 log: [(False, 'FAIL: crashed (unstable termination); left |z| region; rotation incomplete (-182deg); did not finish with held upright hover (best hold=0, final tilt=128deg)'), (False, 'FAIL: crashed (unstable termination); left |z| region; rotation incomplete (53deg); did not finish with held upright hover (best hold=0, final tilt=80deg)'), (False, 'FAIL: crashed (unstable termination); left |z| region; never inverted (min gz=-0.09); rotation incomplete (60deg); did not finish with held upright hover (best hold=0, final tilt=71deg)')]
+random         {'success': False, 'terminated': True, 'duration_s': 1.24, 'final_tilt_deg': 128.1326, 'final_omega': 5.3273, 'max_alt_loss_m': 5.0054, 't_flip_s': None, 't_recovered_s': None, 'control_effort': 1.607}
+random         {'success': False, 'terminated': True, 'duration_s': 1.355, 'final_tilt_deg': 80.0432, 'final_omega': 8.7144, 'max_alt_loss_m': 5.0229, 't_flip_s': None, 't_recovered_s': None, 'control_effort': 1.8165}
+random         {'success': False, 'terminated': True, 'duration_s': 1.61, 'final_tilt_deg': 70.5517, 'final_omega': 4.072, 'max_alt_loss_m': 5.0141, 't_flip_s': None, 't_recovered_s': None, 'control_effort': 2.1795}
+ALL CHECKS PASSED
+Wilson 0/3 = [0.     0.5615]  3/3 = [0.4385 1.    ]  25/50 = [0.3664 0.6336]
+controller           success        95% CI  alt loss  fin tilt  fin |w|  t_flip   t_rec  effort  failure modes
+--------------------------------------------------------------------------------------------------------------
+random                0/3    [0.00,0.56]     5.01 m    92.9°     6.04       —       —    1.87  crash/region 3
+hover (constant)      0/3    [0.00,0.56]     0.00 m     0.0°     0.00       —       —    0.00  never inverted 3
+motors off            0/3    [0.00,0.56]     5.01 m     0.0°     0.00       —       —    4.98  crash/region 3
+scripted flip         3/3    [0.44,1.00]     0.00 m     0.0°     0.00    0.61    0.83    1.12  —
+CSV rows: 12 | table/CSV/JSON consistent for ['random', 'hover (constant)', 'motors off', 'scripted flip']
+modes: {'random': {'crash/region': 3}, 'hover (constant)': {'never inverted': 3}, 'motors off': {'crash/region': 3}, 'scripted flip': {'success': 3}}
+ALL STEP-3 CHECKS PASSED

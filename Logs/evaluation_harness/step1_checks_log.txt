@@ -1,0 +1,17 @@
+1) hover action = 0.0541
+2) max |obs - true state| = 3.785771696129814e-11
+3) detector hold_steps = 80
+4) constant hover  seed=0 success=False terminated=False t=10.00s | FAIL: never inverted (min gz=+1.00); rotation incomplete (0deg); did not finish with held upright hover (best hold=0, final tilt=0deg)
+4) constant hover  seed=1 success=False terminated=False t=10.00s | FAIL: never inverted (min gz=+1.00); rotation incomplete (0deg); did not finish with held upright hover (best hold=0, final tilt=0deg)
+4) constant hover  seed=2 success=False terminated=False t=10.00s | FAIL: never inverted (min gz=+1.00); rotation incomplete (0deg); did not finish with held upright hover (best hold=0, final tilt=0deg)
+   1.92 s wall-clock per episode
+4) motors off      seed=0 success=False terminated=True t= 1.12s | FAIL: crashed (unstable termination); left |z| region; never inverted (min gz=+1.00); rotation incomplete (0deg); did not finish with held upright hover (best hold=0, final tilt=0deg)
+4) motors off      seed=1 success=False terminated=True t= 1.12s | FAIL: crashed (unstable termination); left |z| region; never inverted (min gz=+1.00); rotation incomplete (0deg); did not finish with held upright hover (best hold=0, final tilt=0deg)
+4) motors off      seed=2 success=False terminated=True t= 1.12s | FAIL: crashed (unstable termination); left |z| region; never inverted (min gz=+1.00); rotation incomplete (0deg); did not finish with held upright hover (best hold=0, final tilt=0deg)
+   0.25 s wall-clock per episode
+4) random          seed=0 success=False terminated=True t= 1.24s | FAIL: crashed (unstable termination); left |z| region; rotation incomplete (-182deg); did not finish with held upright hover (best hold=0, final tilt=128deg)
+4) random          seed=1 success=False terminated=True t= 1.35s | FAIL: crashed (unstable termination); left |z| region; rotation incomplete (53deg); did not finish with held upright hover (best hold=0, final tilt=80deg)
+4) random          seed=2 success=False terminated=True t= 1.61s | FAIL: crashed (unstable termination); left |z| region; never inverted (min gz=-0.09); rotation incomplete (60deg); did not finish with held upright hover (best hold=0, final tilt=71deg)
+   0.76 s wall-clock per episode
+5) same seeds -> identical results: True
+6) invalid action rejected: controller must return 4 finite motor commands, got array([n
