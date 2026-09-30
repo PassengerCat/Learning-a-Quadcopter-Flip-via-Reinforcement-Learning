@@ -1,0 +1,10 @@
+1) cell_of correct on 10 cases incl. edges and out-of-range
+   all 9 interior edges per axis go to the upper cell (5 ms durations land exactly on them)
+   all 100 cell centres map to their own cell
+2) new / rejected(worse) / rejected(tie) / improved / invalid behave as specified: {'new': 1, 'improved': 1, 'rejected': 2, 'invalid': 5}
+3) stats: filled=2 coverage=0.02 best=-1.1 qd_score=56.90
+4) QD-score monotone over 500 random insertions; coverage 0.98
+5) random_elite deterministic per seed; empty archive raises
+6) save -> load identical (cells, counts, stats); inconsistent file rejected
+7) real default flip enters cell (2, 2) with fitness -1.1172
+ALL M3 CHECKS PASSED

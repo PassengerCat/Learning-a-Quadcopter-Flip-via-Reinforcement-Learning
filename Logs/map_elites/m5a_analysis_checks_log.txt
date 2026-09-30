@@ -1,0 +1,7 @@
+1) cell (8,1) colour [0.05 0.21 0.42] | transposed cell (1,8) [0.94 0.94 0.93] | empty colour [0.94 0.94 0.93]
+2) better cell darker: brightness 0.68 (f=-1.0) < 2.67 (f=-3.0)
+3) default marker at (0.345 s, 0.633 m) = cell (2,2); out-of-range mark clamped to (0.2, 3.0)
+4) empty archive renders: empty archive
+   convergence: 2 panels, one series each, data plotted exactly
+5) tiny real run: load_run returns the saved archive/history/config; figures written. stats: {'filled': 37, 'coverage': 0.37, 'best_fitness': -0.9295047369295371, 'mean_fitness': -1.5507895290405402, 'qd_score': 1052.6207874255, 'new': 37, 'improved': 9, 'rejected': 15, 'invalid': 39}
+ALL M5a CHECKS PASSED

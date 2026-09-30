@@ -1,0 +1,30 @@
+Robustness screening R1 (executed by the user on Windows; analysed in the cloud, no training).
+Command: robustness.py --name R1 --runs ME1 ME2 ME3 ME1_s1 ME1_s2 ME2_s1 ME2_s2 --top 10 --episodes 10 (confirm 5 x 50)
+Candidates: 71 (default + top-10 of 7 runs; no duplicate genomes). Episodes: 2801, no duplicate (candidate, condition, seed).
+The stage-1 ranking recomputed in the cloud from episodes.csv equals summary.json.
+
+Stage 1 (10 s episodes, seeds 0-9):
+  nominal          71/71 succeed
+  obs_noise       699/710   (11 failures)
+  wind            710/710   (no failure at 1 m/s)
+  perturbed_start 694/710   (16 failures)
+  every failure is "over-rotation" (pitch travel above the 420 deg one-flip budget)
+  63/71 candidates reach 100 % (30/30); the 8 others: ME1:6,5 29/30, ME1_s2:3,2 29/30, ME1_s2:4,4 29/30,
+    ME1_s2:4,2 29/30, ME2_s1:7,8 28/30, ME2_s1:6,7 27/30, ME1_s2:5,4 23/30, ME2_s1:6,9 19/30
+  failing candidates have larger nominal pitch travel (Spearman 0.50, p=7e-6); disturbances add a median 19 deg
+    (max 47 deg) of travel over the nominal episode; perturbed_start adds the most
+  default controller: 30/30, max travel 377 deg, nominal 10 s fitness -1.117 (rank 63, it loses only on fitness)
+
+Confirmation (5 leaders, seeds 0-49, 150 disturbed episodes each): all 150/150 (Wilson 95 % 98-100 %).
+  leader        fitness 10 s   nominal travel   max disturbed travel   margin to 420 deg
+  ME2_s1:4,5    -0.692         374.8            415.3 (perturbed start)  4.7
+  ME2_s1:5,6    -0.698         383.3            419.0 (perturbed start)  1.0
+  ME2_s2:4,6    -0.702         374.3            401.9                   18.1
+  ME2:4,6       -0.702         375.1            411.4                    8.6
+  ME2_s2:5,7    -0.703         370.2            393.1                   26.9
+Selected by the agreed rule (robust rate, then fitness): ME2_s1:4,5.
+
+Interpretation: the mild conditions saturate (all leaders 100 %), so the agreed rule reduces to nominal fitness.
+The fitness spread among the leaders is 1.6 %, while the worst-case travel margin ranges from 1 to 27 deg; the
+selected elite keeps only 4.7 deg of margin. The mild wind has no effect on any candidate. A discriminating test
+(stronger disturbance) or an explicit margin criterion is needed before the final choice (decision pending).

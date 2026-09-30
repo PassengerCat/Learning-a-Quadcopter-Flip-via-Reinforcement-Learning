@@ -1,0 +1,4 @@
+5 s re-run in the cloud (Linux) vs stored Windows results: valid 100/100, max |dfitness| 4.61e-12, max |ddescriptor| 3.09e-12
+10 s nominal re-validation: 100/100 still succeed
+   same cell at 10 s: 100/100;  fitness change 5->10 s (effort accumulates in hover): median -0.0000
+   min sampled max-tilt at 10 s: 179.4 deg; max pitch travel: 419.5 deg (budget 420)

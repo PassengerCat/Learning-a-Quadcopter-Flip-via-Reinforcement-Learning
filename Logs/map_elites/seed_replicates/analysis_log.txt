@@ -1,0 +1,35 @@
+Seed replicates: ME1 (t_climb <= 0.6) vs ME2 (t_climb <= 1.0), search seeds 0, 1, 2 (cloud analysis, no training).
+Runs executed by the user on Windows: ME1, ME2 (seed 0, earlier) and ME1_s1, ME1_s2, ME2_s1, ME2_s2 (budget 5000, 12 workers).
+Everything else identical (code, grid, fitness, sigma, batch, n_init). Configs checked: seeds and boxes as intended.
+
+run      seed  @2001: filled  best     median   QD      | @5000: filled best     median   mean     QD      | 100 cells at | invalid
+ME1      0            100     -0.7708  -1.0588  2863.6  |        100    -0.7585  -1.0251  -1.2834  2871.7  | 1921         | 18.7 %
+ME1_s1   1             97     -0.7542  -1.0630  2775.8  |        100    -0.7487  -1.0091  -1.2862  2871.4  | 3101         | 19.2 %
+ME1_s2   2             98     -0.7838  -1.1022  2807.2  |        100    -0.7488  -1.0293  -1.2855  2871.5  | 2901         | 23.3 %
+ME2      0             96     -0.7238  -1.0233  2755.5  |        100    -0.7022  -0.9137  -1.1919  2880.8  | 3841         | 28.9 %
+ME2_s1   1             99     -0.7260  -0.9873  2845.2  |        100    -0.6924  -0.8797  -1.1669  2883.3  | 2681         | 24.0 %
+ME2_s2   2             97     -0.7149  -1.0114  2785.3  |        100    -0.7021  -0.9185  -1.2052  2879.5  | 3621         | 23.8 %
+
+Across seeds (mean +- sd, [min, max]); "separated" = every ME2 run better than every ME1 run
+(with 3 vs 3 the smallest possible one-sided Mann-Whitney p is 0.05):
+  @5000 best fitness   ME1 -0.7520 +- 0.0056 [-0.7585, -0.7487]   ME2 -0.6989 +- 0.0056 [-0.7022, -0.6924]   separated, p=0.05
+  @5000 median cell    ME1 -1.0212 +- 0.0107                      ME2 -0.9040 +- 0.0211                      separated, p=0.05
+  @5000 QD-score       ME1 2871.50 +- 0.15                        ME2 2881.20 +- 1.95                        separated, p=0.05
+  @2001 best fitness   ME1 -0.7696 +- 0.0149                      ME2 -0.7216 +- 0.0059                      separated, p=0.05
+  @2001 median cell    ME1 -1.0747 +- 0.0239                      ME2 -1.0074 +- 0.0183                      separated, p=0.05
+  @2001 QD-score       ME1 2815.6 +- 44.5                         ME2 2795.3 +- 45.7                         not separated (coverage still incomplete)
+
+Per cell, same seed (Wilcoxon signed-rank):
+  seed 0: ME2 better in 67/100 cells, median +0.059, p=6e-7
+  seed 1: ME2 better in 79/100 cells, median +0.107, p=7e-11
+  seed 2: ME2 better in 68/100 cells, median +0.059, p=3e-6
+  best of 3 seeds per cell: ME2 better in 73/100, median +0.081, p=3e-10
+Where ME2 gains (mean fitness difference): by climb row 0..9 (0-3 m):
+  +0.013 +0.016 -0.025 +0.034 +0.042 +0.068 +0.111 +0.186 +0.209 +0.286  -> the gain grows with climb height
+  by duration column: +0.06..+0.14, no clear trend
+
+Conclusions:
+  - Widening t_climb to 1.0 s improves the archive consistently across seeds: best -7 %, median cell -11 % effort cost;
+    the gain is concentrated in high-climb cells (a longer, gentler climb reaches the same height with less thrust).
+  - Run-to-run variance is small; ME1's final QD-score is nearly identical across seeds (sd 0.15), i.e. the search
+    converges in every cell for that box. ME2 needs more evaluations (100 cells at 2681-3841 vs 1921-3101).

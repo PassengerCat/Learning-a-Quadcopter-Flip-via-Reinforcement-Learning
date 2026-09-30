@@ -1,0 +1,54 @@
+{
+ "runs": [
+  "ME1",
+  "ME2",
+  "ME3",
+  "ME1_s1",
+  "ME1_s2",
+  "ME2_s1",
+  "ME2_s2"
+ ],
+ "top": 10,
+ "episodes": 10,
+ "confirm": 5,
+ "confirm_episodes": 50,
+ "episode_seconds": 10.0,
+ "conditions": {
+  "nominal": {
+   "name": "nominal",
+   "obs_noise_scale": 0.0,
+   "wind_speed": 0.0,
+   "wind_gusts": false,
+   "init_tilt_deg": 0.0,
+   "init_rate": 0.0,
+   "init_vel": 0.0
+  },
+  "obs_noise": {
+   "name": "obs_noise",
+   "obs_noise_scale": 1.0,
+   "wind_speed": 0.0,
+   "wind_gusts": false,
+   "init_tilt_deg": 0.0,
+   "init_rate": 0.0,
+   "init_vel": 0.0
+  },
+  "wind": {
+   "name": "wind",
+   "obs_noise_scale": 0.0,
+   "wind_speed": 1.0,
+   "wind_gusts": false,
+   "init_tilt_deg": 0.0,
+   "init_rate": 0.0,
+   "init_vel": 0.0
+  },
+  "perturbed_start": {
+   "name": "perturbed_start",
+   "obs_noise_scale": 0.0,
+   "wind_speed": 0.0,
+   "wind_gusts": false,
+   "init_tilt_deg": 5.0,
+   "init_rate": 0.2,
+   "init_vel": 0.2
+  }
+ }
+}

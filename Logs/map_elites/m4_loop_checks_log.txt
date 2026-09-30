@@ -1,0 +1,16 @@
+1) 18000 mutations stay in the box; interior step std / (0.1*range) = 0.99..1.01
+2) initial genomes: default + LHS, in box, deterministic
+3) workers=1 and workers=2 give identical results: evals=40 filled=17 best=-1.0320 qd=480.63 counts={'new': 17, 'improved': 4, 'rejected': 11, 'invalid': 8}
+4) budget 40 respected, new+improved+rejected+invalid = 40, all 17 elites are §04 successes; checkpoints written: ['archive_00016.json', 'archive_00031.json', 'archive_final.json']
+5) different seed -> different archive
+6) killed at evals 36 (last checkpoint at 31), resumed -> identical final archive and history
+7) resume with changed sigma rejected; all-invalid initialisation raises: no valid genome after initialisation -- nothing to mutate
+ALL M4 CHECKS PASSED
+
+--- CLI under the 'spawn' start method (as on Windows): run 30 evals, refuse to overwrite, resume to 50 ---
+evals    20  filled   6  best -1.068898765919276  qd 170.9  (21 s)
+evals    30  filled  10  best -1.068898765919276  qd 279.5  (36 s)
+final: {'filled': 10, 'coverage': 0.1, 'best_fitness': -1.068898765919276, 'mean_fitness': -2.047533484513637, 'qd_score': 279.52466515486367, 'new': 10, 'improved': 0, 'rejected': 0, 'invalid': 20}
+<cloud scratch>/runs/T1 already has a run; use --resume or another --name
+evals    50  filled  15  best -1.068898765919276  qd 422.1  (29 s)
+final: {'filled': 15, 'coverage': 0.15, 'best_fitness': -1.068898765919276, 'mean_fitness': -1.857664522259679, 'qd_score': 422.1350321661048, 'new': 15, 'improved': 0, 'rejected': 0, 'invalid': 35}

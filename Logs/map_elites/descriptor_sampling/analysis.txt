@@ -1,0 +1,42 @@
+default: success=True dur=0.345 climb=0.633 tilt=179.4
+
+LHS: 101/400 successes (25.2%)
+failure reasons: [('FAIL: exceeded one-flip rotation/travel budget', 264), ('FAIL: crashed (unstable termination)', 27), ('FAIL: did not finish with held upright hover (best hold=110, final tilt=1deg)', 1), ('FAIL: did not finish with held upright hover (best hold=41, final tilt=0deg)', 1), ('FAIL: did not finish with held upright hover (best hold=145, final tilt=1deg)', 1), ('FAIL: did not finish with held upright hover (best hold=53, final tilt=2deg)', 1)]
+completed 360 (any outcome): 394
+  success rot_duration min/p1/p5/p50/p95/p99/max = 0.240 0.240 0.260 0.415 0.595 0.630 0.750
+  success max_climb    min/p1/p5/p50/p95/p99/max = 0.026 0.027 0.031 0.488 2.118 3.168 3.672
+  success max_tilt     min/p1/p5/p50/p95/p99/max = 175.704 175.978 176.764 178.571 179.739 179.801 179.852
+  success effort       min/p1/p5/p50/p95/p99/max = 0.815 0.863 0.946 1.264 2.211 2.767 3.427
+  success alt_loss     min/p1/p5/p50/p95/p99/max = 0.000 0.000 0.000 0.215 1.858 2.320 2.753
+
+Spearman(duration, climb) among successes = +0.191 (p=0.056)
+bootstrap rot_duration p1 = 0.246 ± 0.008   p99 = 0.659 ± 0.058
+bootstrap max_climb    p1 = 0.028 ± 0.002   p99 = 3.152 ± 0.402
+convergence rot_duration first 200: [0.271,0.613]  all 400: [0.240,0.630]
+convergence max_climb    first 200: [0.028,3.388]  all 400: [0.027,3.168]
+
+One-at-a-time sweeps (default elsewhere): success count / duration range / climb range
+  t_climb      0.00..  0.60: 8/9  dur 0.345-0.345  climb 0.02-3.58  fails@0.60
+  F_climb_g    1.00..  3.00: 9/9  dur 0.340-0.345  climb 0.02-1.27  fails@
+  q_peak       8.00.. 35.00: 8/9  dur 0.325-0.515  climb 0.63-0.64  fails@8.00
+  a_brake     20.00..200.00: 4/9  dur 0.315-0.610  climb 0.63-0.63  fails@110.00,132.50,155.00,177.50,200.00
+  F_rot_g      0.30..  1.50: 9/9  dur 0.335-0.355  climb 0.61-0.67  fails@
+  Kp_att      20.00..120.00: 9/9  dur 0.345-0.345  climb 0.63-0.63  fails@
+  Kd_att       4.00.. 25.00: 8/9  dur 0.345-0.345  climb 0.63-0.63  fails@4.00
+  Kv           1.00..  8.00: 9/9  dur 0.345-0.345  climb 0.63-0.63  fails@
+  Kz           0.50..  4.00: 9/9  dur 0.345-0.345  climb 0.63-0.63  fails@
+  Kvxy         0.50..  4.00: 9/9  dur 0.345-0.345  climb 0.63-0.63  fails@
+  Kpxy         0.20..  2.00: 9/9  dur 0.345-0.345  climb 0.63-0.63  fails@
+
+LHS success rate by parameter (low third / mid / high third):
+  t_climb    0.36  0.26  0.14
+  F_climb_g  0.29  0.26  0.22
+  q_peak     0.21  0.21  0.34
+  a_brake    0.58  0.16  0.02
+  F_rot_g    0.24  0.24  0.28
+  Kp_att     0.19  0.27  0.30
+  Kd_att     0.09  0.38  0.28
+  Kv         0.29  0.25  0.22
+  Kz         0.29  0.22  0.25
+  Kvxy       0.24  0.30  0.22
+  Kpxy       0.24  0.29  0.22
