@@ -1,0 +1,27 @@
+Harness step 13: final_comparison --detector {section04, ppo_track} and the PPO track's exact conditions (cloud, temporary runs and scripts deleted after passing; no training)
+
+C1 default path unchanged: final_comparison --episodes 2 --controllers map_elites_final scripted_flip
+   --conditions nominal action_noise_005 --block 1, old code (before this commit) vs new code:
+   identical summary.txt
+   identical nominal/episodes.csv
+   identical nominal/summary.json
+   identical action_noise_005/episodes.csv
+   identical action_noise_005/summary.json
+   config.json: only the new "detector": "section04" key is added
+   Default conditions stay nominal, action_noise_005, stress (the FINAL set).
+
+C2 ppo_track run: --detector ppo_track --seed0 10000 --episodes 2 --conditions nominal ppo_track_stress
+   == ppo_track_stress (2 episodes, seeds 10000-10001, detector ppo_track) ==
+   map_elites_final      0/2  ...  no 0.4 s hold 2
+   scripted_flip         1/2  ...  no 0.4 s hold 1
+   map_elites_final: §04 verdict on the same episodes 0/2
+   scripted_flip: §04 verdict on the same episodes 0/2
+   (scripted seed 10000 fail / 10001 success = the per-seed parity result of step 12)
+   episodes.csv: success, failure_mode, t_flip_s, t_recovered_s by her detector, plus
+   detector, success_section04, failure_mode_section04, ppo_track_revolution_deg,
+   ppo_track_success_then_terminated; summary.json meta and summaries record the detector.
+   ppo_track_stress meta: obs_noise_scale 1.0, action_noise 0.15, gyro_noise 0.2
+
+C3 failure modes (6 cases), metric source, summary counts, unknown detector rejected: OK
+   (argparse: invalid choice: 'foo' (choose from 'section04', 'ppo_track'))
+ALL STEP-13 CHECKS PASSED
