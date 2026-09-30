@@ -1,0 +1,19 @@
+§04 detector: travel budget counted only during the maneuver (cloud, temporary test script deleted after passing; no training)
+
+   clean flip                                 old PASS -> new PASS   travel counted  352.0 / total  360.0 deg
+   flip, 25 deg overshoot, back               old PASS -> new PASS   travel counted  352.9 / total  410.0 deg
+   flip + long jitter (360 deg total)         old FAIL -> new PASS   travel counted  352.0 / total 1080.0 deg
+   double flip (720)                          old FAIL -> new FAIL   travel counted  352.0 / total  720.0 deg   (exceeded one-flip rotation/travel budget; did not finish near on)
+   flip, then 40 deg further and back         old FAIL -> new FAIL   travel counted  352.0 / total  440.0 deg   (exceeded one-flip rotation/travel budget; did not finish with he)
+   flip, then full reverse turn               old FAIL -> new FAIL   travel counted  352.0 / total  720.0 deg   (did not finish near one signed revolution; did not finish with h)
+   rocking before completing (0-200-20-360)   old FAIL -> new FAIL   travel counted  712.0 / total  720.0 deg   (exceeded one-flip rotation/travel budget; did not finish with he)
+1) synthetic trajectories: only post-flip jitter changes verdict (FAIL -> PASS); double flip, 40 deg extra turn, reverse turn and rocking before completion still FAIL; travel_until_upright=False reproduces the old detector exactly
+2) nominal 10 s, 4 controllers: new verdicts and reasons identical to the old detector re-judging the same trajectory (16 s)
+   default     ppo_nominal  9/10  maneuver travel max 359.4  total travel max 496.6  final |w| mean 0.30  failures ['FAIL: did not finish with held upright hover (best hold=937, final til']
+   default     stress       0/10  maneuver travel max 388.4  total travel max 734.4  final |w| mean 0.99  failures ['FAIL: did not finish with held upright hover (best hold=104, final til', 'FAIL: did not finish with held upright hover (best hold=37, final tilt', 'FAIL: did not finish with held upright hover (best hold=55, final tilt', 'FAIL: did not finish with held upright hover (best hold=66, final tilt', 'FAIL: did not finish with held upright hover (best hold=91, final tilt', 'FAIL: never inverted (min gz=-0.92)', 'FAIL: never inverted (min gz=-0.98)']
+   ME2_s1:4,5  ppo_nominal 10/10  maneuver travel max 364.4  total travel max 490.9  final |w| mean 0.29  failures none
+   ME2_s1:4,5  stress       0/10  maneuver travel max 408.1  total travel max 698.9  final |w| mean 0.82  failures ['FAIL: did not finish with held upright hover (best hold=38, final tilt', 'FAIL: did not finish with held upright hover (best hold=44, final tilt', 'FAIL: did not finish with held upright hover (best hold=62, final tilt', 'FAIL: did not finish with held upright hover (best hold=66, final tilt', 'FAIL: did not finish with held upright hover (best hold=70, final tilt', 'FAIL: exceeded one-flip rotation/travel budget', 'FAIL: never inverted (min gz=-0.93)', 'FAIL: never inverted (min gz=-0.97)', 'FAIL: never inverted (min gz=-0.98)']
+   ME2_s2:5,7  ppo_nominal 10/10  maneuver travel max 364.9  total travel max 462.2  final |w| mean 0.28  failures none
+   ME2_s2:5,7  stress       0/10  maneuver travel max 410.5  total travel max 666.3  final |w| mean 0.79  failures ['FAIL: did not finish with held upright hover (best hold=46, final tilt', 'FAIL: did not finish with held upright hover (best hold=47, final tilt', 'FAIL: did not finish with held upright hover (best hold=55, final tilt', 'FAIL: did not finish with held upright hover (best hold=69, final tilt', 'FAIL: did not finish with held upright hover (best hold=89, final tilt', 'FAIL: exceeded one-flip rotation/travel budget', 'FAIL: never inverted (min gz=-0.93)', 'FAIL: never inverted (min gz=-0.97)', 'FAIL: never inverted (min gz=-0.98)']
+3) informative (was 0/10 everywhere with whole-episode travel) (302 s)
+ALL TRAVEL-WINDOW CHECKS PASSED

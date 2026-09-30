@@ -1,0 +1,21 @@
+0) inverted_gz = -0.98481 (tilt 170.0 deg)
+1) arc minimum vs dense (2001-point) slerp: max overestimate of gz = 9.61e-04 (steps <= 46 deg)
+2) roll excursion  5 deg (max tilt ~175 deg): 170-rule success=True (inverted=True)  old 120-rule success=True
+2) roll excursion 15 deg (max tilt ~165 deg): 170-rule success=False (inverted=False)  old 120-rule success=True
+2) roll excursion 40 deg (max tilt ~140 deg): 170-rule success=False (inverted=False)  old 120-rule success=False
+3) default 200 Hz harness success=True (max tilt 180.0) | 50 Hz: sampled max tilt 169.6 deg -> without arc would be NOT inverted; with arc success=True
+3) slow    200 Hz harness success=True (max tilt 180.0) | 50 Hz: sampled max tilt 172.8 deg -> without arc would be inverted; with arc success=True
+3) fast    200 Hz harness success=True (max tilt 179.6) | 50 Hz: sampled max tilt 164.2 deg -> without arc would be NOT inverted; with arc success=True
+4) harness regression (0.605 / 0.835 / 1.1172) unchanged
+5) LHS successes before 101 / after 101; changed verdicts: 0
+ALL 170-DEGREE CHECKS PASSED
+[ok] clean flip -> SUCCESS (rev=360deg, min_gz=-1.00, hold=33)
+[ok] half flip -> FAIL (FAIL: rotation incomplete (180deg); did not finish with held upright hover (best hold=0, final tilt=180deg))
+[ok] wobble -> FAIL (FAIL: never inverted (min gz=+0.77); rotation incomplete (13deg); exceeded one-flip rotation/travel budget; did not finish with held upright hover (best hold=0, final tilt=13deg))
+[ok] flip then crash -> FAIL (FAIL: crashed (unstable termination); did not finish with held upright hover (best hold=3, final tilt=0deg))
+[ok] flip then out-of-region -> FAIL (FAIL: left |z| region; did not finish with held upright hover (best hold=3, final tilt=0deg))
+[ok] flip then upright-but-fast -> FAIL (FAIL: did not finish with held upright hover (best hold=3, final tilt=0deg))
+[ok] negative-direction flip -> SUCCESS (rev=360deg)
+
+All §04 success-detector self-tests passed.
+7 passed in 0.71s
