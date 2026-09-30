@@ -1,0 +1,37 @@
+{
+ "name": "MAP-Elites final flip controller",
+ "controller": "Controllers/three_phase_flip.py:ThreePhaseFlip",
+ "genome": {
+  "t_climb": 1.0,
+  "F_climb_g": 1.2364115100929645,
+  "q_peak": 14.575638395113383,
+  "a_brake": 51.85101214722602,
+  "F_rot_g": 1.3174733215476788,
+  "Kp_att": 60.88558477814212,
+  "Kd_att": 17.673481951119406,
+  "Kv": 2.7065091806875197,
+  "Kz": 1.1666656362443246,
+  "Kvxy": 3.8460012416080387,
+  "Kpxy": 1.3196018247562324
+ },
+ "source": {
+  "run": "ME2_s1",
+  "search_seed": 1,
+  "genome_box_t_climb": [
+   0.0,
+   1.0
+  ],
+  "archive": "MAP_Elites/runs/ME2_s1/archive_final.json",
+  "cell": [
+   4,
+   5
+  ],
+  "descriptors": {
+   "rotation_duration_s": 0.4399999999999906,
+   "max_climb_m": 1.52449735598143
+  },
+  "search_fitness_5s": -0.6924217247886814
+ },
+ "selection": "Best nominal fitness among the top-10 elites of the seven MAP-Elites runs (robustness screening R1, all leaders 150/150 under the mild conditions); re-checked on 2026-09-29 with the maneuver-only travel budget: 10 s nominal success, fitness -0.692, max revolution 364.9 deg (limit 390).",
+ "date": "2026-09-29"
+}
