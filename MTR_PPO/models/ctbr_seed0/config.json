@@ -1,0 +1,101 @@
+{
+  "action_mode": "ctbr",
+  "action_repeat": 4,
+  "ctbr": {
+    "rate_max_rp": 20.0,
+    "rate_max_yaw": 4.0,
+    "kp_rate": [
+      18.0,
+      18.0,
+      8.0
+    ]
+  },
+  "quad_model": {
+    "mass": 1.2,
+    "g": 9.81,
+    "kTh": 1.076e-05,
+    "kTo": 1.632e-07,
+    "dxm": 0.16,
+    "dym": 0.16,
+    "inertia_diag": [
+      0.0123,
+      0.0123,
+      0.0224
+    ],
+    "w_min": 75.0,
+    "w_max": 925.0,
+    "w_hover": 522.9847140714692
+  },
+  "n_actor": 25,
+  "n_priv": 26,
+  "flip_direction": 1.0,
+  "eps_full": 0.15,
+  "radius": 0.6,
+  "eval_omega": 5.0,
+  "env_kwargs": {
+    "action_mode": "ctbr",
+    "episode_seconds": 6.0,
+    "omega_range": [
+      4.5,
+      5.5
+    ],
+    "radius": 0.6,
+    "max_tilt_deg": 10.0,
+    "max_rate": 1.0,
+    "max_vel": 0.5,
+    "rate_max": 20.0,
+    "ref_start_prob": 0.5,
+    "kernels": "dense",
+    "backtrack_deg": 30.0,
+    "alive_bonus": 0.5,
+    "alive_speed_k": 1.0
+  },
+  "args": {
+    "action_mode": "ctbr",
+    "timesteps": 1000000,
+    "n_envs": 11,
+    "seed": 0,
+    "tag": "gear_ft2",
+    "logdir": "<repo>/Reward_and_Training/gear_tracking/runs",
+    "episode_seconds": 6.0,
+    "omega_min": 4.5,
+    "omega_max": 5.5,
+    "radius": 0.6,
+    "eval_omega": 5.0,
+    "curriculum_frac": 0.0,
+    "max_tilt_deg": 10.0,
+    "max_rate": 1.0,
+    "max_vel": 0.5,
+    "kernels": "dense",
+    "ref_start_prob": 0.5,
+    "backtrack_deg": 30.0,
+    "alive_bonus": 0.5,
+    "alive_speed_k": 1.0,
+    "init_model": "<repo>/Reward_and_Training/gear_tracking/runs/gear_ft_ctbr_seed0_20261001-040736/final_model.zip",
+    "rate_max": 20.0,
+    "n_steps": 512,
+    "batch_size": 1024,
+    "n_epochs": 10,
+    "lr": 0.0001,
+    "lr_end": 3e-05,
+    "gamma": 0.99,
+    "gae_lambda": 0.95,
+    "clip": 0.2,
+    "ent_start": 0.005,
+    "ent_end": 0.0,
+    "log_std_init": -1.0,
+    "pi_arch": [
+      128,
+      128
+    ],
+    "vf_arch": [
+      256,
+      256
+    ],
+    "eval_freq": 200000,
+    "eval_episodes": 10,
+    "eval_seconds": 10.0,
+    "smoke": false,
+    "dry_run": false
+  }
+}
