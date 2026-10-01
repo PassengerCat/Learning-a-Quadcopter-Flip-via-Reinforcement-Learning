@@ -207,3 +207,12 @@ This page lists the methods used so far for the comparison part of the project, 
 - **Verification:** `Success_Detector/ppo_track_detector.py` is a verbatim copy (text and behaviour identical). With it, the harness reproduces her published scripted-flip results on her seeds 10000–10019: 20 % under stress, 100 % under motor noise 0.05, with matching rotation, final tilt and |ω|.
 
   Logs: `Logs/success_detector/ppo_track_copy_checks_log.txt`, `Logs/evaluation_harness/step12`, `step13`.
+- **Result FINAL_PT** (50 episodes per cell, seeds 10000–10049; `Logs/final_comparison/FINAL_PT/`). Parity inside the run: the scripted flip scores 4/20 and 20/20 on her seeds 10000–10019, as in her tables.
+
+  | Condition | MAP-Elites | Default three-phase | Scripted flip |
+  |---|---|---|---|
+  | nominal (brief) | 50/50 | 50/50 | 50/50 |
+  | PPO-track nominal | 50/50 | 50/50 | 50/50 |
+  | PPO-track stress | 15/50 | 14/50 | 17/50 |
+
+  The §04 verdict is 0/50 for all three under stress, because none holds still at the end.

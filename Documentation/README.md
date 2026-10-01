@@ -1,4 +1,4 @@
-# Documentation: evaluation, success detectors and MAP-Elites
+# Documentation: evaluation, success detectors, MAP-Elites and MTR-PPO
 
 - [Changelog](CHANGELOG_EXPERIMENTS.md): every change, check and result, in order.
 - [Methods for the report](map_elites/METHODS_FOR_REPORT.md): each verified method, how it was checked, and where the evidence is.
@@ -13,6 +13,7 @@
 | `Evaluation/` | the evaluation harness, the final comparison and the demo renderer |
 | `MAP_Elites/` | problem, archive, search loop, analysis figures, robustness screening |
 | `Baselines/harness_adapter.py` | runs the PPO track's §02 baselines in the harness |
+| `MTR_PPO/` | MTR-PPO (Multiplicative Tracking Reward PPO): pure-RL PPO with a multiplicative tracking reward adapted from GEAR; reference, reward, observation, environment, deployed controller, training script and the reported model ([README](../MTR_PPO/README.md)) |
 
 ## Setup
 
@@ -25,5 +26,7 @@ Same environment as the PPO track (`Reward_and_Training/requirements.txt`). The 
     python MAP_Elites/robustness.py --name R1 --runs ME1 ME2 --top 10
     python Evaluation/final_comparison.py --name FINAL_PT --detector ppo_track --seed0 10000 --episodes 50 --conditions nominal ppo_track_nominal ppo_track_stress --controllers map_elites_final three_phase_default scripted_flip
     python Evaluation/render_episode.py --controller map_elites_final --condition nominal --seed 0
+    python Evaluation/final_comparison.py --name FINAL_PT_MTR --detector ppo_track --seed0 10000 --episodes 50 --conditions nominal ppo_track_nominal ppo_track_stress --controllers ppo_mtr
+    python MTR_PPO/train_mtr.py --action-mode motors --seed 0 --kernels dense --ref-start-prob 0.5 --backtrack-deg 30 --alive-bonus 0.5 --alive-speed-k 1
 
 Each script documents its options in its docstring (`--help`).

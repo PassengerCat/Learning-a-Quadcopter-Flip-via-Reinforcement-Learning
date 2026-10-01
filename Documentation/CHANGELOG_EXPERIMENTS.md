@@ -800,3 +800,466 @@ Log: `Logs/evaluation_harness/step13_detector_option_checks_log.txt`.
 Log: `Logs/repository_branch_checks_log.txt`.
 
 **Setup note:** the simulator is not part of the repository (`.gitignore`). Clone `upatras-lar/Quadcopter_SimCon` and either set `QUAD_SIM_DIR` to its `Simulation/` folder, as for the PPO track, or place the clone at `Reward_and_Training/Quadcopter_SimCon`, the default path of the harness.
+
+## 2026-09-30 — Planned experiment: final PPO attempt with a GEAR-style tracking reward (pure RL)
+
+**Decision (user):** one last PPO experiment. It is pure RL, with no behaviour cloning and no demonstration starts. It uses the trajectory-tracking reward of GEAR ("Multi-Task Reinforcement Learning of Drone Aerobatics by Exploiting Geometric Symmetries", arXiv 2602.10997), and follows its recipe as closely as this vehicle and our compute allow. The same pipeline is run first with CTBR actions (as in GEAR), then with direct motor commands. New files go in `MTR_PPO/`; no file of the PPO track is changed. Training is started by the user.
+
+**GEAR recipe, as implemented:**
+
+- **Reference.** Maneuvers are defined by body-frame invariants. Flip: loop centre at r along the thrust axis, velocity [ωr, 0, 0], body rates [0, ω, 0]. Hover: the start position, at rest.
+- **Task sequence.** Our task is one flip and then hover, so the command switches from FLIP to HOVER when the geometric revolution reaches 360° − 8.6°. Because the switch is triggered by completing the turn rather than by time, a vehicle that only hovers stays in FLIP and earns almost nothing.
+- **Relative state.** p_rel = Rᵀ(p_des − p), v_rel, ω_rel, R_rel = Rᵀ R_z(ψ_des), all in the body frame.
+- **Actor observation.** The relative state (18), the previous action (4), and the command: task one-hot and ω.
+- **Reward.** r = r_pos · r_lin · r_ang · r_cmd · r_task, with H(x; k) = 1/(1 + kx) and GEAR's k sets ({1, 10}, {1, 10, 100}, {0.1, 1, 10}, {1, 10}). r_task = 2 for the flip.
+- **r_cmd.** Commanded against achieved attribute: pitch rate against ω during the flip, number of turns against 1 afterwards.
+- **Episodes.** No crash penalty: termination ends the positive reward.
+- **Randomisation.** The command ω is randomised per episode. Initial states are randomised with a range that expands during training (curriculum).
+
+**Deviations, and why:**
+
+- **ω range.** 4.5–5.5 rad/s with r = 0.6 m, instead of GEAR's 4–6 rad/s. With thrust/weight ≈ 3.1, no single radius makes both ends of 4–6 feasible: at ω = 4 the top of the loop needs r ≥ 0.61 m, at ω = 6 the bottom needs r ≤ 0.57 m. Evaluation uses ω = 5.
+- **Network and platform.** A plain MLP actor with the PPO track's privileged critic, instead of GEAR's equivariant networks, which serve multi-task generalisation. 50 Hz decisions (action repeat 4) instead of 100 Hz. CPU environments instead of 2048 GPU environments.
+- **Reward scaling.** The reward is divided by its maximum and multiplied by the step time, so that returns are on the scale of the PPO track's settings. A constant factor does not change the optimal policy.
+
+**Evaluation:** the universal harness on the nominal benchmark, judged by the PPO track's detector with the §04 verdict alongside, during and after training.
+
+## 2026-09-30 — MTR-PPO step 1: reference (`MTR_PPO/mtr_reference.py`)
+
+**Added:** `FlipCommand` (ω, r, direction) and `LoopReference`. `start()` fixes the start position, ψ_des and the loop centre (r above the start). `relative_state(task, …)` returns GEAR's body-frame p_rel, v_rel, ω_rel and R_rel for FLIP or HOVER.
+
+**Checks (cloud, script deleted):**
+
+- the rotation matrix equals the PPO track's `quat_to_rotation_matrix`;
+- an ideal loop has zero FLIP relative state at every point, for 5 headings and both directions;
+- integrating the desired velocity over one loop returns to the start (4.5e-16 m), so the invariants are kinematically consistent;
+- start and hover states give the expected values; invalid commands are rejected.
+
+**Feasibility on this vehicle (r = 0.6 m):**
+
+| ω [rad/s] | thrust needed at the top | thrust needed at the bottom | loop duration |
+|---|---|---|---|
+| 4.5 | 0.24 g | 2.24 g | 1.40 s |
+| 5.0 | 0.53 g | 2.53 g | 1.26 s |
+| 5.5 | 0.85 g | 2.85 g | 1.14 s |
+
+Available thrust is 0.02–3.13 g.
+
+Log: `Logs/MTR_PPO/checks/step01_reference_checks_log.txt`.
+
+## 2026-09-30 — MTR-PPO step 2: reward (`MTR_PPO/mtr_reward.py`)
+
+**Added:** `MultiplicativeTrackingReward`, a per-environment reward hook with the PPO track's signature.
+
+- r = r_pos · r_lin · r_ang · r_cmd · r_task with GEAR's kernels and k sets.
+- r_cmd: during FLIP, pitch rate against ω; during HOVER, turns against 1.
+- r_task = 2 during FLIP and 1 during HOVER. The switch to HOVER happens at a geometric revolution of 360° − 8.6°, updated every 5 ms.
+- Normalised so that perfect flip tracking earns 1 per second and perfect hover 0.5 per second.
+- No crash penalty.
+- It provides what the PPO track's `FlipTaskEnv` reads from a reward (alpha, phase, passed_inverted, cfg fields, reset), so it can be installed there unchanged.
+
+**Checks (cloud, script deleted):**
+
+- kernel sums are exact, and 500 random states equal an independent recomputation;
+- perfect flip = 1/s, perfect hover = 0.5/s;
+- the reward decreases strictly with position, velocity and rate errors;
+- **hovering while FLIP is commanded earns 8.7e-5/s (0.009 %)**, so doing nothing is not rewarded;
+- an ideal loop fed through the hook scores 1.000/s during FLIP, switches to HOVER at 352.4°, and scores 0.5/s at rest afterwards;
+- right after the switch, a vehicle still at loop speed scores about 0.002/s, so the policy must brake.
+
+Log: `Logs/MTR_PPO/checks/step02_reward_checks_log.txt`.
+
+## 2026-09-30 — MTR-PPO step 3: observation and training environment (`MTR_PPO/mtr_observation.py`, `mtr_env.py`)
+
+**Added:**
+
+- **`TrackingObsBuilder` (deployable).** The actor observation is 25 values: p_rel, v_rel/5, ω_rel/10, R_rel (9), the previous action (4), the task one-hot [FLIP, HOVER] and ω/5. The task switch uses the PPO track's `FlipProgressTracker`, once per decision.
+- **`MTRFlipEnv`.** A subclass of the PPO track's `FlipTaskEnv`, whose code is not changed. It keeps action repeat 4, CTBR or motors, the privileged critic (26 values) and her detector for logging. It installs the multiplicative tracking reward and the tracking actor observation.
+- **Randomisation.** ω ~ U[4.5, 5.5] per episode. The initial-state curriculum has scale s ∈ [0, 1]: tilt ≤ 10°·s about a random horizontal axis, rates ≤ 1 rad/s·s, velocity ≤ 0.5 m/s·s. No demonstration starts, no noisy-hover initial steps, no wind.
+- **`make_mtr_env(action_mode=...)`.**
+
+**Checks (cloud, script deleted):**
+
+- actor 25 + privileged 26 = 51 observations, and both action modes run;
+- the start observation matches the reference, and ω covers [4.50, 5.48] over 40 resets;
+- at curriculum 1 the start ranges are respected and used (tilt ≤ 9.87°, rates ≤ 0.999, velocity ≤ 0.500), and reward, detector and trackers restart at the perturbed state;
+- the start is applied exactly as the harness applies its perturbed start;
+- the env's actor observation equals an independent builder over 110 decisions;
+- seeded runs are reproducible;
+- motors off ends the episode with no negative reward.
+
+**Real simulator (6 s, informative):**
+
+- PID hover: return 0.001, it never leaves FLIP;
+- the PPO track's scripted flip: return 0.20. It switches to HOVER at 1.3 s and succeeds by her detector, but it ends 2.09 m above the start, so the hover term pays only 0.05/s.
+
+Log: `Logs/MTR_PPO/checks/step03_env_checks_log.txt`.
+
+## 2026-09-30 — MTR-PPO step 4: deployed controller (`MTR_PPO/mtr_controller.py`)
+
+**Added:** `MTRController`, which runs a trained policy with the course interface (`reset`, `act -> (action, info)`) in the evaluation harness.
+
+- It loads the model and the run's `config.json`.
+- It decides once every `action_repeat` calls and holds the motor command in between.
+- It builds the observation with the same `TrackingObsBuilder` as training, for the nominal command (ω = 5 rad/s).
+- A CTBR action goes through the same rate loop, once per decision. The privileged critic input is not needed.
+
+**Checks (cloud, untrained policies only, script deleted):**
+
+- for both CTBR and motors, the controller, fed only the raw observations, gives exactly the actions and motor commands of the training environment over a whole episode (300 and 104 decisions);
+- it runs in the harness under nominal and the PPO track's stress, producing both verdicts;
+- malformed configs are rejected.
+
+Log: `Logs/MTR_PPO/checks/step04_controller_checks_log.txt`.
+
+## 2026-09-30 — MTR-PPO step 5: training script (`MTR_PPO/train_mtr.py`), ready for the user to run
+
+**Added:** pure-RL PPO (Stable-Baselines3) with the PPO track's asymmetric actor-critic on `make_mtr_env` workers.
+
+- **Schedules.** The curriculum scale grows linearly 0 → 1 over the first 50 % of the steps. The entropy coefficient falls 0.005 → 0 and the learning rate 3e-4 → 3e-5.
+- **Other settings.** log-std −1.0; the PPO track's pure-RL settings for everything not specified by GEAR.
+- **Evaluation during training.** Every 200k steps, 10 nominal 10 s episodes of the deployed controller in the universal harness (ω = 5). Success is judged by the PPO track's detector, with the §04 verdict alongside. `best_model.zip` is the best by (PPO-track success, §04 success, −crash rate).
+- **Options.** `--action-mode ctbr|motors`, `--dry-run` (builds everything and evaluates the untrained policy once, without learning), and `--smoke` (a tiny learning run, started by the user).
+
+**Checks (cloud, no learning):**
+
+- `--dry-run` for both action modes with 2 subprocess workers; each run folder holds only config, evaluation log and the untrained model;
+- the saved model and config reload into the deployed controller;
+- the schedules set the entropy and the curriculum in the workers and log them;
+- the evaluation callback writes the CSV and keeps `best_model.zip`;
+- out-of-range ω options are rejected.
+
+A small robustness fix was made during the checks: the callbacks read the step count from the model, and tolerate an empty episode buffer before learning starts.
+
+Log: `Logs/MTR_PPO/checks/step05_training_script_checks_log.txt`.
+
+**Planned runs (started by the user):** CTBR seeds 0 and 1, then motors seeds 0 and 1, with 3M steps each.
+
+## 2026-09-30 — Final comparison FINAL_PT (executed by the user): the PPO track's detector and conditions
+
+**Run:** `final_comparison.py --name FINAL_PT --detector ppo_track --seed0 10000 --episodes 50 --workers 12 --conditions nominal ppo_track_nominal ppo_track_stress --controllers map_elites_final three_phase_default scripted_flip`.
+
+- Seeds 10000–10049, which is the PPO track's seed bank. The first 20 seeds are exactly her evaluation episodes.
+- 10 s episodes.
+- Success by her detector, with the §04 verdict alongside.
+- Copies of all results: `Logs/final_comparison/FINAL_PT/`.
+
+| Condition | MAP-Elites | Default three-phase | Scripted flip |
+|---|---|---|---|
+| nominal (brief, no noise) | 50/50 | 50/50 | 50/50 |
+| PPO-track nominal (motor 0.05 + sensor noise) | 50/50 | 50/50 | 50/50 |
+| PPO-track stress (motor 0.15 + gyro 0.2 + sensor noise) | 15/50 (30 %) | 14/50 (28 %) | 17/50 (34 %) |
+
+**Parity inside the real run:** on her seeds 10000–10019 the scripted flip scores 4/20 under stress and 20/20 under her nominal. Both equal her published tables. No episode latched success and then crashed.
+
+**§04 on the same episodes:**
+
+- identical under nominal;
+- 47–49/50 under her nominal;
+- 0/50 under stress, where every stress failure by her detector is "no 0.4 s hold".
+
+The difference between the detectors is the final-hold rule. Under 0.2 rad/s gyro noise the vehicles pass |ω| < 0.8 for some 0.4 s window, but not at the end of the episode.
+
+**Effort and timing (her nominal):** MAP-Elites 0.81, against 1.22 (default) and 2.16 (scripted). MAP-Elites is the slowest to flip and settle (1.52 s / 2.65 s).
+
+## 2026-09-30 — MTR-PPO run 1 (executed by the user): CTBR, seed 0, all episodes start at hover. Stopped at ~1.1M steps: no learning signal
+
+**Run:** `MTR_PPO/train_mtr.py --action-mode ctbr --seed 0` (defaults: 3M steps, 11 workers). It was stopped at about 1.1M steps, on the evidence below.
+
+**Evaluation (10 nominal episodes, every 200k steps):** 0 % success with both detectors, 0 % inverted, 100 % terminated at 200k, 400k, 600k, 800k and 1M steps.
+
+**Training curves (TensorBoard):**
+
+- mean episode return 0.0002–0.0004 throughout; a flip followed by hover is worth about 3.5;
+- every training episode terminates after 2–4 s;
+- critic explained variance about −2 and value loss 3e-5, so there is nothing to predict.
+
+**Behaviour of the 900k checkpoint (cloud replay, no training):** the policy climbs at full thrust while tilting to about 70° the wrong way. It leaves the altitude region upward (z = −5 m) after about 1.1 s. The best instantaneous reward found was 0.5 % of the maximum.
+
+**Diagnosis.** The multiplicative reward is a narrow peak. From hover it gives 0.009 % of the maximum; at 50 % of the loop's speed and rate it still gives only 0.23 %, and it becomes noticeable (2.7 %, then 19 %) only at 75–90 %. Random exploration from hover never gets close enough, so the gradient is effectively zero. With no crash penalty (as in GEAR), ending the episode early costs nothing when the reward is already about zero, so leaving the region is not discouraged. This is not a code error: it is the hover-start value measured in step 2 (8.7e-5/s).
+
+Evidence: `Logs/MTR_PPO/runs/run1_ctbr_seed0_hover_starts/`, containing `eval_log.csv`, `config.json` and `training_curves.txt`.
+
+## 2026-09-30 — MTR-PPO step 6: starts on the reference (reference state initialisation)
+
+**Decision (user):** GEAR need not be followed exactly. One final attempt adds random initialisation on the reference, with a longer run than 1M steps.
+
+**Change.**
+
+- New option `--ref-start-prob p`, default 0. A fraction p of the training episodes starts at a random loop phase θ ~ U[0, 360° − 8.6°), in exactly the reference state: position on the circle, attitude, velocity ωr and body rates ω.
+- The loop is anchored at the nominal start position, which is also the hover target.
+- The completed phase θ counts as revolution already made, so the switch to HOVER comes when the loop closes.
+- The remaining episodes start at hover as before. No expert actions are used, so this is not behaviour cloning.
+- Evaluation still starts at hover, so learning the entry into the loop from hover is what the evaluation tests.
+- Code: `LoopReference.anchor()` and `state_at(θ)`; `begin(..., rev0, anchor)` in the reward; `reset(..., anchor, rev0)` in the observation builder; the start option in `mtr_env.py` and `train_tracking.py`.
+
+**Checks (cloud, script deleted):**
+
+- with p = 0, observations, rewards and commands are bit-identical to the previous version, so run 1 stays reproducible;
+- `state_at(θ)` lies exactly on the reference for 800 random phases, headings and commands, in both directions;
+- with p = 1 the reward rate is exactly 1 at the start state, the phase covers 1.5°–348.7°, and the trackers and revolution start at the phase;
+- with p = 0.5, 47.5 % of 400 resets start on the reference;
+- **learning signal:** under the initial random policy, the mean reward rate over the first 0.2 s is 0.0002/s from hover and 0.099/s from reference starts, about 500 times more;
+- the controller parity of step 4 still holds, and invalid p is rejected.
+
+Log: `Logs/MTR_PPO/checks/step06_reference_starts_checks_log.txt`.
+
+**Planned run (user):** `MTR_PPO/train_mtr.py --action-mode ctbr --seed 0 --ref-start-prob 0.5 --tag gear_rsi`, 3M steps. Motors and a second seed only if CTBR learns.
+
+## 2026-09-30 — MTR-PPO run 2 (executed by the user): CTBR, seed 0, `--ref-start-prob 0.5`, narrow (GEAR's) kernels. Stopped at ~0.3M steps: the reward is too narrow
+
+**Run:** `MTR_PPO/train_mtr.py --action-mode ctbr --seed 0 --ref-start-prob 0.5 --tag gear_rsi`, read at about 0.29M steps and then stopped.
+
+**Training curves:**
+
+- **Return:** the mean episode return rose from 0.0003 (run 1) to about 0.011, about 40 times more, but stayed flat from the first rollouts on.
+- **Episodes:** about 95 % still end by leaving the region, after about 3 s.
+- **Starts:** half the episodes started on the reference, as intended (`mtr_ref_start` ≈ 0.5).
+- **Evaluation at 200k (from hover):** 0 % inverted, 100 % terminated.
+
+**Reading.** Starting on the loop gives reward at the start, but the policy leaves the loop within a few tenths of a second and the reward falls back to about zero. GEAR's k values (up to 100 on velocity and 10 on rate) make every term collapse for small deviations, and the product collapses with them. The user judged the reward too narrow and asked for a much denser one.
+
+Evidence: `Logs/MTR_PPO/runs/run2_ctbr_seed0_ref_starts_narrow_kernels/`.
+
+## 2026-09-30 — MTR-PPO step 7: wider ("dense") reward kernels (`--kernels dense`)
+
+**Decision (user):** make the reward much denser, keeping its structure.
+
+**Change.**
+
+- The kernel k values become a setting: `MTRRewardConfig.kernels` and the CLI option `--kernels narrow|dense`. The default `narrow` is GEAR's set, so runs 1 and 2 stay reproducible.
+- `dense` keeps the multiplicative GEAR structure and the same terms, with one coarse and one fine kernel per term. The coarse kernel has half value at the typical error of a hover start:
+  - r_lin k ∈ {0.1, 1}, half value at about 3.2 and 1 m/s;
+  - r_ang and r_cmd k ∈ {0.04, 0.25}, half value at 5 and 2 rad/s;
+  - r_pos unchanged at {1, 10}.
+
+**Reward rate against closeness to the loop** (fraction of the loop's speed and rate reached):
+
+| Kernels | 0 % | 25 % | 50 % | 75 % | 90 % | 100 % |
+|---|---|---|---|---|---|---|
+| narrow | 0.01 % | 0.04 % | 0.23 % | 2.7 % | 19 % | 100 % |
+| dense | 3.2 % | 7.7 % | 19.9 % | 54.7 % | 89.0 % | 100 % |
+
+Doing nothing during FLIP still earns little: 0.032/s, about 0.19 per 6 s episode, against about 3.4 for a flip followed by hover. Staying airborne now pays, since the reward is never close to zero while the vehicle flies, so leaving the region has a cost.
+
+**Checks (cloud, script deleted):**
+
+- `narrow` is bit-identical to the previous version, with and without reference starts;
+- `dense` equals an independent recomputation on 500 random states, reproduces the table above, and gives perfect hover = 0.5/s;
+- unknown kernel sets are rejected.
+
+**Learning signal:** under the initial random policy, the mean reward rate over the first 0.2 s is:
+
+| Kernels | hover starts | reference starts |
+|---|---|---|
+| narrow | 0.0004/s | 0.11/s |
+| dense | 0.039/s | 0.29/s |
+
+Log: `Logs/MTR_PPO/checks/step07_dense_kernels_checks_log.txt`.
+
+**Planned run (user):** `MTR_PPO/train_mtr.py --action-mode ctbr --seed 0 --ref-start-prob 0.5 --kernels dense --tag gear_dense`, 3M steps.
+
+## 2026-09-30 — MTR-PPO run 3 (executed by the user): CTBR, seed 0, `--ref-start-prob 0.5`, `--kernels dense`. The policy exploits the reward
+
+**Run:** `MTR_PPO/train_mtr.py --action-mode ctbr --seed 0 --ref-start-prob 0.5 --kernels dense --tag gear_dense`, read at about 2.3M of 3M steps; it then ran on to about 2.95M, with the same behaviour (return 2.55, harness evaluation 0 % success up to 2.8M).
+
+**Training curves (mean per 0.2M steps):**
+
+| steps | 0–0.2M | 0.8M | 1.2M | 1.6M | 2.0M | 2.2M+ |
+|---|---|---|---|---|---|---|
+| episode return | 0.06 | 0.51 | 1.31 | 1.94 | 2.30 | 2.40 |
+| crashed | 0.95 | 0.02 | 0 | 0 | 0 | 0 |
+| passed inverted | 0.44 | 0.39 | 0.34 | 0.31 | 0.34 | 0.30 |
+| flip success | 0 | 0 | 0 | 0 | 0 | 0 |
+
+The dense kernels fixed the learning signal: crashes went to zero, the explained variance rose to about 0.96, and the return kept rising. The fraction of episodes that pass inverted fell instead of rising, and the harness evaluation (10 nominal episodes from hover) gave 0 % success at every point up to 2.8M.
+
+**Replay of the 2.1M checkpoint (cloud, deterministic):** from hover the policy pitches forward at about +5 rad/s, as the reference asks, through the lower half of the loop (about −100° to +90°), where the reward rate is 55–80 % of the maximum. Near +90° it snaps back at −12 to −21 rad/s, losing reward for only about 0.15 s, and repeats about five times per 6 s episode. None of 4 hover starts passes 180°. Reference starts above about 150° complete the loop and hover at the start position; starts at 65–100° swing back.
+
+**Reading.** The FLIP reference is parametrised by the vehicle's attitude, not by time: every attitude has a point on the loop, and being there with the loop's velocity and rate earns the same reward whether the vehicle is advancing or has turned back. Nothing rewards progress, so the easy lower half pays about 0.4/s indefinitely, and the policy settled there. Its action spread (std) fell from 0.36 to 0.14, so the remaining steps would only entrench it.
+
+Evidence: `Logs/MTR_PPO/runs/run3_ctbr_seed0_ref_starts_dense_kernels/` (eval log, config, training curves, policy replay).
+
+## 2026-09-30 — MTR-PPO step 8: termination on turning back (`--backtrack-deg`)
+
+**Decision (user):** end an episode that turns back during the flip (option 1 of two; the alternative, a time-driven reference, was judged likelier to make the reward sparse again).
+
+**Change.**
+
+- `MultiplicativeTrackingReward` keeps the largest revolution reached in the episode (`rev_max`, starting at the start phase).
+- `MTRFlipEnv(backtrack_deg=…)` and the CLI option `--backtrack-deg`: during FLIP, the episode ends when the revolution falls more than `backtrack_deg` below `rev_max`. The reward is positive and there is no penalty; ending the episode forfeits the rest of it, so swinging back stops paying. It never applies during HOVER. The step info carries `mtr_backtrack` (logged as `train_flip/mtr_backtrack`).
+- Default 0 = off, so runs 1–3 stay reproducible. The evaluation harness and the deployed controller are unchanged.
+
+**Checks (cloud, scripts deleted):**
+
+- with the option off (0 or default), rewards, observations and terminations are bit-identical to the previous version, from hover and from reference starts;
+- the run-3 policy with `--backtrack-deg 30`: all 4 hover starts and the reference starts at 66–103° end by backtracking after 0.2–0.3 s (return 0.02–0.10 instead of about 2.4); the start at 148.5° completes the loop and hovers, unchanged (return 2.486); over 40 reference starts, 22 complete the loop and no episode ends by this rule during HOVER;
+- under random actions, 87 % of hover-start episodes end by backtracking (mean length 1.4 s instead of 3.0 s), and the reward rate over the first 0.2 s is unchanged;
+- invalid values are rejected by the environment and the CLI; a trainer dry run (no learning) writes the setting to `config.json`.
+
+Log: `Logs/MTR_PPO/checks/step08_backtrack_termination_checks_log.txt`.
+
+**Risk:** a policy that never starts the flip is not terminated and earns about 0.19 per episode, more than a forward swing that is cut off (0.02–0.04). The reference starts, where completing the loop earns about 2.5, are what must pull the policy over the top. Watch `train_flip/flip_inverted` in the first 0.6–0.8M steps.
+
+**Planned run (user):** `MTR_PPO/train_mtr.py --action-mode ctbr --seed 0 --ref-start-prob 0.5 --kernels dense --backtrack-deg 30 --tag gear_bt`, 3M steps.
+
+## 2026-10-01 — MTR-PPO run 4 (executed by the user): CTBR, seed 0, `--ref-start-prob 0.5`, `--kernels dense`, `--backtrack-deg 30`. The flip is learned, the recovery is not
+
+**Run:** `MTR_PPO/train_mtr.py --action-mode ctbr --seed 0 --ref-start-prob 0.5 --kernels dense --backtrack-deg 30 --tag gear_bt`, read at about 1.37M of 3M steps.
+
+**Training curves (mean per 0.1M steps):**
+
+| steps | 0.1M | 0.3M | 0.5M | 0.8M | 1.1M | 1.3M+ |
+|---|---|---|---|---|---|---|
+| passed inverted | 0.48 | 0.98 | 0.99 | 1.00 | 1.00 | 1.00 |
+| loop completed (`mtr_task`) | 0.22 | 0.47 | 0.95 | 0.98 | 0.99 | 1.00 |
+| ended by backtracking | 0.55 | 0.01 | 0 | ~0 | ~0 | 0 |
+| crashed | 0.45 | 0.99 | 0.99 | 0.98 | 0.97 | 0.96 |
+| episode length (s) | 1.1 | 1.5 | 2.0 | 2.8 | 3.1 | 3.2 |
+
+The swing of run 3 disappeared within 0.3M steps. From then on nearly every episode completes the loop, and nearly every episode then leaves the region. The harness evaluation (10 nominal episodes from hover) gave 100 % inverted, 0 % success and 100 % crashes at every point up to 1.4M.
+
+**Replay of the 1.2M checkpoint (cloud, deterministic):**
+
+- **The flip works.** From hover the policy flies a full loop in 1.1–1.2 s (the reference at 5 rad/s takes about 1.26 s), climbing about 1.2 m and passing inverted at about 12 rad/s.
+- **The recovery fails.** At the end of the loop it still turns at 3–4 rad/s and moves at about 3 m/s. It does not brake, keeps rotating (up to about 1.4 turns), loses height, and leaves the region 5 m below about 2 s after the flip.
+- The 1.5M checkpoint behaves the same.
+
+**Reading.** After the flip the HOVER reward is tiny while the vehicle is far and fast (0.3–3 % of the maximum), and there is no crash penalty, so crashing costs almost nothing. The episode length grows only slowly (2.8 → 3.2 s over the last 0.5M steps).
+
+Evidence: `Logs/MTR_PPO/runs/run4_ctbr_seed0_backtrack30/` (eval log, config, training curves, policy replay).
+
+## 2026-10-01 — MTR-PPO step 9: post-flip survival bonus (`--alive-bonus`) and fine-tuning start (`--init-model`)
+
+**Decision (user):** reward staying airborne after the flip, and continue from the run-4 policy, which already flips, instead of starting again.
+
+**Change.**
+
+- **Survival bonus.** `MTRRewardConfig.b_alive_hover`, `make_mtr_env(alive_bonus=…)` and the CLI option `--alive-bonus b`. During HOVER only, i.e. once the loop is complete, every simulator step also earns b · u · dt, with u = (1 + cos tilt)/2 (1 upright, 0 inverted). With b = 0.5 a perfect hover earns 1/s instead of 0.5/s, and flying upright but off target still earns about 0.5/s instead of about 0.02/s. The bonus only exists after the flip, so it cannot reward not flipping (a crash penalty could).
+- **Fine-tuning start.** CLI option `--init-model path`: the trainer starts from a saved model instead of a fresh network.
+  - The network, its action spread and the observation layout come from the file.
+  - The PPO settings, schedules, number of workers and environment come from the command.
+  - A model from a run with a different action mode or observation is rejected (read from the `config.json` next to the file).
+  - Use `--curriculum-frac 0` to start with the full initial-state randomisation.
+- **Defaults** 0 and none, so runs 1–4 stay reproducible. The evaluation harness and the deployed controller are unchanged.
+
+**Checks (cloud, scripts deleted):**
+
+- with the bonus off, rewards, observations and terminations are bit-identical to step 8;
+- the bonus equals an independent recomputation from the quaternion at every simulator step (max error 3.5e-18); it is exactly 0 during FLIP, and the dynamics are unchanged;
+- the run-4 policy's returns from hover rise from 0.08–0.14 to 0.57–0.65, against about 6 for a flip followed by perfect hover and about 0.19 for hovering without flipping;
+- a model loaded with `--init-model` has the file's weights and actions and this command's PPO settings;
+- a trainer dry run with the run-4 checkpoint (no learning) reproduces run 4's own evaluation at 1.2M exactly;
+- invalid values, a missing file and a mismatched action mode are rejected.
+
+Log: `Logs/MTR_PPO/checks/step09_alive_bonus_init_model_checks_log.txt`.
+
+**Planned run (user): run 5, second stage.** From the run-4 checkpoint at 1.5M (the curriculum was complete there), 1M steps, bonus 0.5/s, full randomisation from the start, learning rate continuing from where run 4 was (about 1.5e-4 → 3e-5):
+
+`MTR_PPO/train_mtr.py --action-mode ctbr --seed 0 --ref-start-prob 0.5 --kernels dense --backtrack-deg 30 --alive-bonus 0.5 --init-model <run 4>/checkpoints/ppo_gear_1499960_steps.zip --curriculum-frac 0 --timesteps 1000000 --lr 1.5e-4 --tag gear_ft`
+
+
+## 2026-10-01 — MTR-PPO run 5 (executed by the user): fine-tuning from run 4 with the survival bonus. Flip and survival learned; the vehicle does not stop
+
+**Run:** `MTR_PPO/train_mtr.py --action-mode ctbr --seed 0 --ref-start-prob 0.5 --kernels dense --backtrack-deg 30 --alive-bonus 0.5 --init-model <run 4>/checkpoints/ppo_gear_1499960_steps.zip --curriculum-frac 0 --timesteps 1000000 --lr 1.5e-4 --tag gear_ft`, complete (1M steps, about 47 min).
+
+**Training curves (mean per 0.1M steps):**
+
+| steps | 0.1M | 0.3M | 0.5M | 0.7M | 1.0M |
+|---|---|---|---|---|---|
+| crashed | 0.96 | 0.51 | 0.09 | 0.05 | 0 |
+| episode length (s) | 3.3 | 5.2 | 5.9 | 6.0 | 6.0 |
+| passed inverted | 1.0 | 1.0 | 1.0 | 1.0 | 1.0 |
+| ended by backtracking | ~0 | 0 | 0 | 0 | 0 |
+| episode return | 1.0 | 2.0 | 2.4 | 2.6 | 2.76 |
+
+**Harness evaluation** (10 nominal episodes from hover, 10 s): crashes fell from 100 % (0.2M, 0.4M) to 0 % (from 0.6M on); at the end the final tilt is 2–5° and the final rate 0.02–0.05 rad/s. Success is 0 % with both detectors at every point.
+
+**Why it fails (final model in the harness, cloud):** the flip is clean (360° by 0.9 s). The vehicle then levels out, but keeps flying horizontally at about 3.5 m/s and ends about 25 m away after 10 s. The PPO-track detector needs |v| < 0.4 m/s for 0.4 s, so it never confirms the recovery. The §04 detector also counts the wobble of 1.5–4 s (tilt up to 40°) towards its rotation budget. All 10 nominal episodes are identical (deterministic policy, nominal start).
+
+**Reading.** The survival bonus of step 9 pays for being upright, not for stopping, and training episodes end only on leaving the region vertically. Flying away upright earns almost the full bonus (0.5/s), while the HOVER tracking term is tiny far from the start.
+
+Evidence: `Logs/MTR_PPO/runs/run5_ctbr_seed0_finetune_alive_bonus/` (eval log, config, training curves, harness trace).
+
+## 2026-10-01 — MTR-PPO step 10: speed-weighted survival bonus (`--alive-speed-k`)
+
+**Decision (user):** make the survival bonus pay for stopping.
+
+**Change.** `MTRRewardConfig.alive_speed_k`, `make_mtr_env(alive_speed_k=…)` and the CLI option `--alive-speed-k k`. The bonus of step 9 is also multiplied by 1/(1 + k|v|²). The weighting is smooth, so the reward does not become sparse. With k = 1:
+
+| speed | share of the bonus |
+|---|---|
+| 0.4 m/s (detector limit) | 86 % |
+| 1 m/s | 50 % |
+| 3.5 m/s (run-5 drift) | 7.5 % |
+
+Default 0, so runs 1–5 stay reproducible. The evaluation harness and the deployed controller are unchanged.
+
+**Checks (cloud, scripts deleted):**
+
+- with k = 0 (or the default), rewards, observations and terminations are bit-identical to step 9;
+- with k = 1 the bonus equals an independent recomputation at every simulator step (max error 1.7e-18), is exactly 0 during FLIP, and the dynamics are unchanged;
+- HOVER reward rate, upright, k = 0 → 1: at the start position at rest 1.00 → 1.00/s; 1 m away at 1 m/s 0.60 → 0.35/s; 10 m away at 3.5 m/s 0.50 → 0.04/s;
+- the run-5 policy's return per 6 s episode falls from 2.6–2.7 to 0.49–0.57 (it drifts), against about 6 for a flip followed by a stop near the start;
+- invalid values are rejected; a trainer dry run (no learning) with the run-5 model writes the setting to `config.json`.
+
+Log: `Logs/MTR_PPO/checks/step10_alive_speed_weighting_checks_log.txt`.
+
+**Planned run (user): run 6, third stage.** From the run-5 final model, bonus 0.5/s with k = 1, full randomisation, 1M steps:
+
+`MTR_PPO/train_mtr.py --action-mode ctbr --seed 0 --ref-start-prob 0.5 --kernels dense --backtrack-deg 30 --alive-bonus 0.5 --alive-speed-k 1 --init-model <run 5>/final_model.zip --curriculum-frac 0 --timesteps 1000000 --lr 1e-4 --tag gear_ft2`
+
+## 2026-10-01 — MTR-PPO run 6 (executed by the user): fine-tuning from run 5 with the speed-weighted bonus. The flip and the recovery are learned
+
+**Run:** `MTR_PPO/train_mtr.py --action-mode ctbr --seed 0 --ref-start-prob 0.5 --kernels dense --backtrack-deg 30 --alive-bonus 0.5 --alive-speed-k 1 --init-model <run 5>/final_model.zip --curriculum-frac 0 --timesteps 1000000 --lr 1e-4 --tag gear_ft2`, complete (1M steps).
+
+**Training:** no crash and no backtracking throughout, every episode completes the loop; the return rose from 0.73 to 4.25 (a flip followed by perfect hover earns about 6). The harness evaluation during training (10 nominal episodes) gave PPO-track success 100 % from the first point (0.2M) on; §04 success only at 0.6M (`best_model.zip`).
+
+**Harness evaluation of the two models** (cloud; same seeds 10000–10049, conditions and detector as `FINAL_PT`; 50 episodes each):
+
+| condition | final (1.0M): PPO-track | §04 | best (0.6M): PPO-track | §04 | best of FINAL_PT (PPO-track) |
+|---|---|---|---|---|---|
+| nominal | 50/50 | 0/50 | 50/50 | 50/50 | 50/50 (all three) |
+| ppo_track_nominal | 50/50 | 0/50 | 50/50 | 42/50 | 50/50 (all three) |
+| ppo_track_stress | 36/50 [0.58, 0.83] | 0/50 | 34/50 [0.54, 0.79] | 0/50 | 17/50 (scripted_flip) |
+
+Final model, nominal: flip by 0.82 s, recovered by 2.16 s, altitude loss 0.06 m. Under stress the failures are all "no 0.4 s hold" (14/50); there are no crashes.
+
+**Why the final model fails §04:** it passes inverted at about 169.8° (min g_z = −0.984), just short of §04's 170°, so §04 never registers the inversion and its other checks follow from that. The best model reaches about 172° (min g_z = −0.991) and passes §04 in nominal. The reported definition is the PPO-track detector (150°).
+
+Evidence: `Logs/MTR_PPO/runs/run6_ctbr_seed0_finetune_speed_weighted/` (eval log, config, training curves, §04 vs PPO-track on one nominal episode, `harness_FINAL_PT_conditions/`).
+
+## 2026-10-01 — MTR-PPO step 11: the method is named MTR-PPO, gets its own folder, and joins the final comparison
+
+**Decision (user):** name the method MTR-PPO (Multiplicative Tracking Reward PPO), state that the reward structure is adapted from GEAR, give the method an organised folder, and make the trained policy a controller of the final comparison.
+
+**Change.**
+
+- **Folder.** `Reward_and_Training/gear_tracking/` becomes `MTR_PPO/` at the repository root, next to `MAP_Elites/`. Modules: `mtr_reference.py`, `mtr_reward.py`, `mtr_observation.py`, `mtr_env.py`, `mtr_controller.py`, `train_mtr.py`, plus a README. The PPO track's modules are still imported from `Reward_and_Training/` and are unchanged.
+- **Names.** Classes, kernel set (`gear` → `narrow`), info and TensorBoard keys (`gear_*` → `mtr_*`), default tag (`mtr`) and checkpoint prefix (`ppo_mtr_*`). The entries above use the current names. Runs 1–6 were executed under the earlier names, and their commands keep the tags they ran with. The mapping is in `Logs/MTR_PPO/README.md`.
+- **Model.** The run-6 final model is `MTR_PPO/models/ctbr_seed0/final_model.zip`, with its run configuration and a README of the three training stages.
+- **Controller.** `Evaluation/final_comparison.py` accepts `--controllers ppo_mtr`. The default controller set is unchanged, so `FINAL` and `FINAL_PT` rerun as before.
+- **Logs.** `Logs/gear_tracking/` becomes `Logs/MTR_PPO/`, with `checks/` (step01–step11) and `runs/` (run1–run6). Absolute local paths in the run configurations are shortened to `<repo>`.
+
+**Checks (cloud, scripts deleted):**
+
+- the renamed environment is bit-identical to the previous code (rewards, observations, terminations, info values) for CTBR with narrow kernels, dense kernels with reference starts, the final recipe, and motors with the final recipe;
+- `ppo_mtr` in the final comparison reproduces the earlier evaluation of the run-6 model episode by episode (150/150 episodes identical);
+- trainer dry runs (no learning) work in CTBR and motors mode; a CTBR model is rejected as the start of a motors run;
+- the reference checks of step 1 run on the renamed module.
+
+Log: `Logs/MTR_PPO/checks/step11_rename_checks_log.txt`.
+
+**Result, `FINAL_PT_MTR`** (same seeds, conditions and detector as `FINAL_PT`; `Logs/final_comparison/FINAL_PT_MTR/`):
+
+| condition | ppo_mtr | MAP-Elites | three-phase default | scripted flip |
+|---|---|---|---|---|
+| nominal | 50/50 | 50/50 | 50/50 | 50/50 |
+| ppo_track_nominal | 50/50 | 50/50 | 50/50 | 50/50 |
+| ppo_track_stress | **36/50** [0.58, 0.83] | 15/50 | 14/50 | 17/50 |
+
+ppo_mtr in nominal: flip by 0.82 s, recovered by 2.16 s, altitude loss 0.06 m. Under stress its 14 failures are all "no 0.4 s hold", with no crashes. The §04 verdict is 0/50 in every condition, because the policy passes inverted at about 169.8°, just short of §04's 170° (step 11 does not change this; see run 6).
+
+**Next (user):** the motors run with the final recipe from a fresh network, for the comparison of action spaces:
+
+`python MTR_PPO/train_mtr.py --action-mode motors --seed 0 --kernels dense --ref-start-prob 0.5 --backtrack-deg 30 --alive-bonus 0.5 --alive-speed-k 1 --timesteps 3000000 --tag mtr_motors`
