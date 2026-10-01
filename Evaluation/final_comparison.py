@@ -6,6 +6,7 @@ Controllers
     scripted_flip        §02 rule-based flip (PPO track, via Baselines/harness_adapter.py)
     pid_hover            §02 cascaded PID that never flips (floor for "does nothing")
     random               §02 uniform random motor commands (floor)
+    ppo_mtr              MTR-PPO, CTBR actions (MTR_PPO/models/ctbr_seed0/final_model.zip)
 Conditions
     nominal              the brief's benchmark: no noise, no wind, nominal start (primary result)
     action_noise_005     motor-command noise 0.05, simulator sensor noise off   (run FINAL)
@@ -13,7 +14,8 @@ Conditions
     ppo_track_nominal    the PPO track's "nominal" exactly: motor noise 0.05 + the simulator's
                          default sensor noise (her env keeps it on)
     ppo_track_stress     the PPO track's "stress" exactly: motor 0.15 + gyro 0.2 + sensor noise
-Default conditions: nominal, action_noise_005, stress (the FINAL set).
+Default controllers: the first five (the FINAL set). Default conditions: nominal,
+action_noise_005, stress (the FINAL set).
 Detector (--detector): section04 (default, as in FINAL) or ppo_track (the PPO track's
 detector on the same episodes; the §04 verdict is kept in the CSV and under the table).
 
@@ -23,6 +25,8 @@ episode on every seed; the seeds still matter for random and for the noisy condi
     python Evaluation/final_comparison.py --name FINAL --episodes 50 --workers 12
     python Evaluation/final_comparison.py --name FINAL_PT --detector ppo_track --seed0 10000 \
         --conditions nominal ppo_track_nominal ppo_track_stress --controllers map_elites_final scripted_flip
+    python Evaluation/final_comparison.py --name FINAL_PT_MTR --detector ppo_track --seed0 10000 \
+        --conditions nominal ppo_track_nominal ppo_track_stress --controllers ppo_mtr
 Output: Evaluation/runs/<name>/<condition>/ (episodes.csv, summary.json) and summary.txt
 """
 from __future__ import annotations
@@ -44,7 +48,9 @@ for _p in (HERE, REPO / "Controllers", REPO / "Baselines"):
 import evaluate as harness                                   # noqa: E402
 from report import DETECTORS, format_table, write_results   # noqa: E402
 
-CONTROLLERS = ("map_elites_final", "three_phase_default", "scripted_flip", "pid_hover", "random")
+CONTROLLERS = ("map_elites_final", "three_phase_default", "scripted_flip", "pid_hover", "random", "ppo_mtr")
+DEFAULT_CONTROLLERS = CONTROLLERS[:5]          # the FINAL set; ppo_mtr only on request
+MTR_MODELS = {"ppo_mtr": REPO / "MTR_PPO" / "models" / "ctbr_seed0" / "final_model.zip"}
 CONDITIONS = {"nominal": harness.NOMINAL,
               "action_noise_005": harness.Condition("action_noise_005", action_noise=0.05),
               "stress": harness.STRESS,
@@ -65,6 +71,10 @@ def make_controller(name: str):
     if name in ("scripted_flip", "pid_hover", "random"):
         from harness_adapter import make_baseline
         return make_baseline(name)
+    if name in MTR_MODELS:
+        sys.path.insert(0, str(REPO / "MTR_PPO"))
+        from mtr_controller import MTRController
+        return MTRController(str(MTR_MODELS[name]))           # its config.json sits next to it
     raise ValueError(f"unknown controller {name!r}; choose from {CONTROLLERS}")
 
 
@@ -80,7 +90,7 @@ def main(argv=None):
     ap.add_argument("--name", required=True, help="output folder under Evaluation/runs/")
     ap.add_argument("--episodes", type=int, default=50)
     ap.add_argument("--seed0", type=int, default=0)
-    ap.add_argument("--controllers", nargs="+", default=list(CONTROLLERS), choices=CONTROLLERS)
+    ap.add_argument("--controllers", nargs="+", default=list(DEFAULT_CONTROLLERS), choices=CONTROLLERS)
     ap.add_argument("--conditions", nargs="+", default=list(DEFAULT_CONDITIONS), choices=list(CONDITIONS))
     ap.add_argument("--detector", default="section04", choices=DETECTORS,
                     help="whose verdict counts as success (both are stored)")

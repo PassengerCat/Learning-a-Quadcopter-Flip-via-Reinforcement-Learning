@@ -1,0 +1,74 @@
+{
+  "meta": {
+    "condition": "ppo_track_nominal",
+    "name": "ppo_track_nominal",
+    "obs_noise_scale": 1.0,
+    "wind_speed": 0.0,
+    "wind_gusts": false,
+    "init_tilt_deg": 0.0,
+    "init_rate": 0.0,
+    "init_vel": 0.0,
+    "action_noise": 0.05,
+    "gyro_noise": 0.0,
+    "seeds": [
+      10000,
+      10049
+    ],
+    "detector": "ppo_track"
+  },
+  "controllers": {
+    "ppo_mtr": {
+      "episodes": 50,
+      "successes": 50,
+      "success_rate": 1.0,
+      "success_ci95": [
+        0.9286499658256813,
+        1.0
+      ],
+      "metrics": {
+        "final_tilt_deg": {
+          "n": 50,
+          "mean": 0.7576814059686192,
+          "min": 0.12247493604127843,
+          "max": 1.812316493358408
+        },
+        "final_omega": {
+          "n": 50,
+          "mean": 0.19569680869045641,
+          "min": 0.058595289058786366,
+          "max": 0.5605254371553373
+        },
+        "max_alt_loss_m": {
+          "n": 50,
+          "mean": 0.057208420696727214,
+          "min": 0.019303471688463393,
+          "max": 0.12507518740645426
+        },
+        "t_flip_s": {
+          "n": 50,
+          "mean": 0.8176000000000007,
+          "min": 0.8000000000000006,
+          "max": 0.8200000000000006
+        },
+        "t_recovered_s": {
+          "n": 50,
+          "mean": 2.0923999999999694,
+          "min": 1.6599999999999788,
+          "max": 2.359999999999964
+        },
+        "control_effort": {
+          "n": 50,
+          "mean": 2.825170971539316,
+          "min": 2.7013203910551398,
+          "max": 2.9316094520537583
+        }
+      },
+      "failure_modes": {
+        "success": 50
+      },
+      "detector": "ppo_track",
+      "section04_successes": 0,
+      "success_then_terminated": 0
+    }
+  }
+}

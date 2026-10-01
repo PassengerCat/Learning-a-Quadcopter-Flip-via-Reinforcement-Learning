@@ -1,0 +1,180 @@
+{
+  "meta": {
+    "condition": "ppo_track_nominal",
+    "name": "ppo_track_nominal",
+    "obs_noise_scale": 1.0,
+    "wind_speed": 0.0,
+    "wind_gusts": false,
+    "init_tilt_deg": 0.0,
+    "init_rate": 0.0,
+    "init_vel": 0.0,
+    "action_noise": 0.05,
+    "gyro_noise": 0.0,
+    "seeds": [
+      10000,
+      10049
+    ],
+    "detector": "ppo_track"
+  },
+  "controllers": {
+    "map_elites_final": {
+      "episodes": 50,
+      "successes": 50,
+      "success_rate": 1.0,
+      "success_ci95": [
+        0.9286499658256813,
+        1.0
+      ],
+      "metrics": {
+        "final_tilt_deg": {
+          "n": 50,
+          "mean": 1.7472713637491095,
+          "min": 0.2499464440664765,
+          "max": 4.141404975003163
+        },
+        "final_omega": {
+          "n": 50,
+          "mean": 0.264179176639075,
+          "min": 0.05670368609520106,
+          "max": 0.6715734719716228
+        },
+        "max_alt_loss_m": {
+          "n": 50,
+          "mean": 0.016836835900707905,
+          "min": 0.0,
+          "max": 0.06717591984791092
+        },
+        "t_flip_s": {
+          "n": 50,
+          "mean": 1.5183999999999898,
+          "min": 1.49999999999999,
+          "max": 1.5199999999999896
+        },
+        "t_recovered_s": {
+          "n": 50,
+          "mean": 2.654399999999958,
+          "min": 2.259999999999966,
+          "max": 3.1399999999999473
+        },
+        "control_effort": {
+          "n": 50,
+          "mean": 0.8071438019110636,
+          "min": 0.754980378677465,
+          "max": 0.8584830396115718
+        }
+      },
+      "failure_modes": {
+        "success": 50
+      },
+      "detector": "ppo_track",
+      "section04_successes": 49,
+      "success_then_terminated": 0
+    },
+    "three_phase_default": {
+      "episodes": 50,
+      "successes": 50,
+      "success_rate": 1.0,
+      "success_ci95": [
+        0.9286499658256813,
+        1.0
+      ],
+      "metrics": {
+        "final_tilt_deg": {
+          "n": 50,
+          "mean": 2.2221269086605555,
+          "min": 0.38696777519410996,
+          "max": 5.511241798436241
+        },
+        "final_omega": {
+          "n": 50,
+          "mean": 0.2962859598924442,
+          "min": 0.06388312969817207,
+          "max": 0.9055653918773929
+        },
+        "max_alt_loss_m": {
+          "n": 50,
+          "mean": 0.01506240974071351,
+          "min": 0.0,
+          "max": 0.05261804207165604
+        },
+        "t_flip_s": {
+          "n": 50,
+          "mean": 0.6152000000000005,
+          "min": 0.6000000000000004,
+          "max": 0.6200000000000004
+        },
+        "t_recovered_s": {
+          "n": 50,
+          "mean": 0.9387999999999939,
+          "min": 0.7799999999999973,
+          "max": 1.2799999999999865
+        },
+        "control_effort": {
+          "n": 50,
+          "mean": 1.2181109246772055,
+          "min": 1.1721420379698417,
+          "max": 1.259179308046722
+        }
+      },
+      "failure_modes": {
+        "success": 50
+      },
+      "detector": "ppo_track",
+      "section04_successes": 47,
+      "success_then_terminated": 0
+    },
+    "scripted_flip": {
+      "episodes": 50,
+      "successes": 50,
+      "success_rate": 1.0,
+      "success_ci95": [
+        0.9286499658256813,
+        1.0
+      ],
+      "metrics": {
+        "final_tilt_deg": {
+          "n": 50,
+          "mean": 1.4267156581587621,
+          "min": 0.11400388909195881,
+          "max": 3.178216899126933
+        },
+        "final_omega": {
+          "n": 50,
+          "mean": 0.3038405113473878,
+          "min": 0.05116620968305791,
+          "max": 0.906462876882555
+        },
+        "max_alt_loss_m": {
+          "n": 50,
+          "mean": 0.002342076814083322,
+          "min": 0.0,
+          "max": 0.009219910241459461
+        },
+        "t_flip_s": {
+          "n": 50,
+          "mean": 1.3283999999999938,
+          "min": 1.2799999999999947,
+          "max": 1.4799999999999904
+        },
+        "t_recovered_s": {
+          "n": 50,
+          "mean": 1.6239999999999792,
+          "min": 1.4199999999999835,
+          "max": 2.2799999999999656
+        },
+        "control_effort": {
+          "n": 50,
+          "mean": 2.161939463913404,
+          "min": 2.0710692565187334,
+          "max": 2.28339113225978
+        }
+      },
+      "failure_modes": {
+        "success": 50
+      },
+      "detector": "ppo_track",
+      "section04_successes": 48,
+      "success_then_terminated": 0
+    }
+  }
+}
