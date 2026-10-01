@@ -1,0 +1,16 @@
+MTR-PPO step 1: reference (mtr_reference.py); cloud, check script deleted after passing; no training
+
+1) rotation_matrix equals the PPO track's quat_to_rotation_matrix on 1000 random quaternions: max diff 3.0e-08
+2) ideal loop (73 phases, 5 headings, both directions): max |p_rel|, |v_rel|, |w_rel| = 2.7e-15
+3) integrating the desired velocity over one loop (midpoint, 20000 steps) returns to the start: error 4.5e-16 m
+4) phase 0 is the anchor, upright: |pos - p0| 0.0e+00, tilt 0.0e+00 deg, yaw 22.9183 deg (anchor 22.9183);
+   centre = p0 + r*up: True; HOVER at p0, at rest: |p_rel| 0.0e+00, |v_rel| 0.0e+00, |w_rel| 0.0e+00
+   phase pi: inverted (R[2,2] = -1.000000), at the top (height above p0 1.2000 m = 2r)
+   start(pos, quat) anchors p0 = pos and psi = yaw(quat): True
+5) invalid commands (omega 0 / -1, radius 0, direction 0.5) and use before anchoring rejected: 5/5
+
+Feasibility on this vehicle (r = 0.6 m, available thrust 0.02-3.13 g):
+   omega  thrust at top  thrust at bottom  loop duration
+    4.5     0.24 g          2.24 g         1.40 s
+    5.0     0.53 g          2.53 g         1.26 s
+    5.5     0.85 g          2.85 g         1.14 s
