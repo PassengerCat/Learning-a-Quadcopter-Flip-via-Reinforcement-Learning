@@ -7,7 +7,11 @@
        and try to insert each child into the archive (problem.py decides validity,
        descriptors and fitness; archive.py the insertion rule).
 
-Every evaluation is one nominal 5 s episode judged by the §04 detector (see problem.py).
+Every evaluation is one nominal 5 s episode. Validity is decided by the §04 detector
+(--validity section04, the default and the setting of ME1-ME3) or by the PPO track's primary
+detector (--validity ppo_track, the report's success criterion), optionally with a check that the
+vehicle turned only once (--single-turn-check); see problem.py. Both are stored in config.json and
+fixed for the life of the run.
 All randomness lives in one generator in the main process and results are inserted in
 submission order, so a run is reproducible for a given seed whatever the worker count.
 Checkpoints (archive + generator state + history) allow a stopped run to resume exactly.
@@ -20,6 +24,7 @@ Run (the user starts full runs):
     python MAP_Elites/map_elites.py --name ME1 --budget 5000 --workers 8 --seed 0
     python MAP_Elites/map_elites.py --name ME1 --resume        # continue after a stop
     python MAP_Elites/map_elites.py --name ME2 --budget 2000 --bound t_climb=0,1.0
+    python MAP_Elites/map_elites.py --name ME1_pt --validity ppo_track --single-turn-check --budget 5000 --seed 0
 """
 from __future__ import annotations
 
@@ -53,16 +58,21 @@ class Config:
     workers: int = 1
     checkpoint_every: int = 500
     genome_bounds: dict = field(default_factory=lambda: dict(P.GENOME_BOUNDS))   # full box of this run
+    validity: str = "section04"   # detector that decides validity (problem.VALIDITY_DETECTORS)
+    single_turn_check: bool = False   # with ppo_track: also require that the vehicle turned only once
 
     def __post_init__(self):
+        if self.validity not in P.VALIDITY_DETECTORS:
+            raise ValueError(f"unknown validity {self.validity!r}; choose from {P.VALIDITY_DETECTORS}")
         # validated, completed from GENOME_BOUNDS, FlipParams order, float tuples
         # (so a box read back from config.json compares equal to the one that was saved)
         self.genome_bounds = {k: (float(lo), float(hi)) for k, (lo, hi) in P.genome_box(self.genome_bounds).items()}
 
 
-def evaluate_for_archive(x, box: dict | None = None) -> dict:
+def evaluate_for_archive(x, box: dict | None = None, validity: str = "section04",
+                         single_turn_check: bool = False) -> dict:
     """Worker: evaluate one genome, return only what the archive and the logs need."""
-    ev = P.evaluate_genome(x, box=box)
+    ev = P.evaluate_genome(x, box=box, validity=validity, single_turn_check=single_turn_check)
     r = ev.result
     return dict(valid=ev.valid, descriptors=ev.descriptors, fitness=ev.fitness,
                 meta=dict(reason=r.reason.split(";")[0], control_effort=r.control_effort,
@@ -92,7 +102,8 @@ class MapElites:
 
     # -- one batch: evaluate in order, insert in order ------------------------------------ #
     def _evaluate(self, genomes, pool):
-        work = partial(evaluate_for_archive, box=self.cfg.genome_bounds)
+        work = partial(evaluate_for_archive, box=self.cfg.genome_bounds, validity=self.cfg.validity,
+                       single_turn_check=self.cfg.single_turn_check)
         results = pool.map(work, list(genomes)) if pool else [work(g) for g in genomes]
         for g, res in zip(genomes, results):
             self.archive.try_insert(g, res["descriptors"], res["fitness"], res["meta"])
@@ -152,9 +163,9 @@ class MapElites:
         out = Path(out_dir)
         saved = Config(**json.loads((out / "config.json").read_text(encoding="utf-8")))
         cfg = cfg or saved
-        if (cfg.seed, cfg.n_init, cfg.batch, cfg.sigma_frac, cfg.genome_bounds) != (
-                saved.seed, saved.n_init, saved.batch, saved.sigma_frac, saved.genome_bounds):
-            raise ValueError("resume must keep seed, n_init, batch, sigma_frac and genome_bounds")
+        keep = ("seed", "n_init", "batch", "sigma_frac", "genome_bounds", "validity", "single_turn_check")
+        if any(getattr(cfg, k) != getattr(saved, k) for k in keep):
+            raise ValueError("resume must keep " + ", ".join(keep))
         me = cls(cfg, out)
         state = json.loads((out / "state.json").read_text(encoding="utf-8"))
         me.archive = Archive.load(out / state["archive"])
@@ -193,6 +204,11 @@ def main():
     ap.add_argument("--resume", action="store_true")
     ap.add_argument("--bound", action="append", metavar="NAME=LOW,HIGH",
                     help="override one genome limit for a new run (repeatable)")
+    ap.add_argument("--validity", choices=P.VALIDITY_DETECTORS, default=None,
+                    help="detector that decides validity for a new run (default section04); "
+                         "a resumed run keeps the one in its config.json")
+    ap.add_argument("--single-turn-check", action="store_true",
+                    help="with --validity ppo_track: a genome is valid only if the vehicle turned once")
     a = ap.parse_args()
     out = HERE / "runs" / a.name
     try:
@@ -201,6 +217,10 @@ def main():
         ap.error(str(e))
     if a.resume and overrides:
         ap.error("--bound cannot be used with --resume: the genome box is fixed by the run's config.json")
+    if a.resume and (a.validity is not None or a.single_turn_check):
+        ap.error("--validity and --single-turn-check cannot be used with --resume: they are fixed by the run's config.json")
+    if a.single_turn_check and a.validity != "ppo_track":
+        ap.error("--single-turn-check needs --validity ppo_track (the §04 detector already checks one turn)")
     if a.resume:
         saved = json.loads((out / "config.json").read_text(encoding="utf-8"))
         me = MapElites.resume(out, Config(**{**saved, "budget": a.budget, "workers": a.workers}))
@@ -208,7 +228,10 @@ def main():
         if (out / "state.json").exists():
             raise SystemExit(f"{out} already has a run; use --resume or another --name")
         me = MapElites(Config(seed=a.seed, budget=a.budget, workers=a.workers,
-                              genome_bounds={**P.GENOME_BOUNDS, **overrides}), out)
+                              genome_bounds={**P.GENOME_BOUNDS, **overrides},
+                              validity=a.validity or "section04",
+                              single_turn_check=a.single_turn_check), out)
+        print("validity:", me.cfg.validity, "+ single-turn check" if me.cfg.single_turn_check else "")
         if overrides:
             print("genome box overrides:", overrides)
     archive = me.run()

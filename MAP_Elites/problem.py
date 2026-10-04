@@ -2,10 +2,19 @@
 
 Genome     : the 11 FlipParams of Controllers/three_phase_flip.py, inside GENOME_BOUNDS
              (a run may override single limits; see genome_box).
-Validity   : ONLY the independent §04 detector's verdict (flip + final stable hover, no crash,
-             in region) on a nominal episode. Invalid genomes get no descriptors, no fitness
-             and never enter the archive -- a crashing or unfinished flip cannot occupy a cell
-             ("crash loophole"), and hovering never qualifies ("do-nothing loophole").
+Validity   : ONLY an independent detector's verdict on a nominal episode, never the fitness.
+             validity="section04" (default, runs ME1-ME3 and the seed replicates): the §04
+             detector (flip + final stable hover, no crash, in region).
+             validity="ppo_track": the PPO track's (primary) detector, i.e. the report's success
+             criterion (latched flip + 0.4 s upright-and-slow hold), AND the episode did not end
+             in a crash or region exit afterwards, so the crash loophole stays closed.
+             single_turn_check=True (with "ppo_track"): additionally, the final revolution of the
+             primary detector must be at most 390 deg, i.e. the vehicle turned once. The primary
+             detector alone does not count the turns, so a double flip would otherwise be valid.
+             (The §04 detector already enforces one turn.)
+             Invalid genomes get no descriptors, no fitness and never enter the archive -- a
+             crashing or unfinished flip cannot occupy a cell ("crash loophole"), and hovering
+             never qualifies ("do-nothing loophole").
 Descriptors: behaviour of the flip, measured on the recorded trajectory (5 ms resolution):
                rotation_duration = t(rev >= 351.4 deg) - t(rev >= 10 deg)            [s]
                max_climb         = max(z0 - z) over the episode, NED so up is -z      [m]
@@ -75,9 +84,25 @@ REV_START_RAD = np.deg2rad(10.0)
 ALT_LOSS_WEIGHT = 1.0          # effort ~0.8-3.4 and altitude loss ~0-2.8 m in the sampling study
 
 
+VALIDITY_DETECTORS = ("section04", "ppo_track")
+ONE_TURN_MAX_RAD = 2.0 * np.pi + np.deg2rad(30.0)     # the §04 detector's max_rev_rad
+
+
+def is_valid(result, validity: str = "section04", single_turn_check: bool = False) -> bool:
+    """Validity of one harness episode under the chosen detector (see the module docstring)."""
+    if validity == "section04":
+        return bool(result.success)
+    if validity == "ppo_track":
+        ok = bool(result.ppo_track["success"]) and not bool(result.terminated)
+        if single_turn_check:
+            ok = ok and float(result.ppo_track["revolution_rad"]) <= ONE_TURN_MAX_RAD
+        return ok
+    raise ValueError(f"unknown validity {validity!r}; choose from {VALIDITY_DETECTORS}")
+
+
 @dataclass
 class Evaluation:
-    valid: bool                        # §04 success on the nominal search episode
+    valid: bool                        # detector success on the nominal search episode (see is_valid)
     descriptors: tuple | None          # (rotation_duration_s, max_climb_m) if valid
     fitness: float | None              # higher is better, if valid
     result: "harness.EpisodeResult"    # full harness result (metrics + trajectory)
@@ -96,16 +121,19 @@ def fitness(result) -> float:
     return -(result.control_effort + ALT_LOSS_WEIGHT * result.max_alt_loss_m)
 
 
-def evaluate_genome(x, episode_seconds: float = SEARCH_EPISODE_SECONDS, box: dict | None = None) -> Evaluation:
+def evaluate_genome(x, episode_seconds: float = SEARCH_EPISODE_SECONDS, box: dict | None = None,
+                    validity: str = "section04", single_turn_check: bool = False) -> Evaluation:
     """Run one nominal episode of the controller defined by genome x and score it.
-    `box` is the run's genome box (default GENOME_BOUNDS); x must lie inside it."""
+    `box` is the run's genome box (default GENOME_BOUNDS); x must lie inside it.
+    `validity` picks the detector that decides validity, `single_turn_check` adds the one-turn
+    check to the primary detector (see is_valid)."""
     x = np.asarray(x, float)
     low, high = box_arrays(box)
     if x.shape != low.shape or np.any(x < low - 1e-12) or np.any(x > high + 1e-12):
         raise ValueError(f"genome outside the genome box: {x}")
     result = harness.evaluate(ThreePhaseFlip(FlipParams.from_array(x)), [0],
                               episode_seconds=episode_seconds, record=True)[0]
-    if not result.success:
+    if not is_valid(result, validity, single_turn_check):
         return Evaluation(False, None, None, result)
-    rev_done = harness.detector_config().full_rev_rad
+    rev_done = harness.detector_config().full_rev_rad     # 2*pi - 0.15, the same for both detectors
     return Evaluation(True, descriptors(result.trajectory, rev_done), fitness(result), result)

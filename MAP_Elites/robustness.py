@@ -9,7 +9,9 @@ harness under each stress condition with the SAME episode seeds (paired comparis
     wind              steady 1 m/s, random direction per seed    seeds 0..E-1
     perturbed_start   tilt <= 5 deg, rates/velocity <= 0.2       seeds 0..E-1
 
-Only the §04 detector judges success. Episodes are written to episodes.csv in chunks, so a
+One detector judges success: the §04 detector (--detector section04, the default and the
+setting of R1) or the PPO track's primary detector (--detector ppo_track, counted exactly as in
+Evaluation/final_comparison.py). The pitch-travel column is always the §04 measurement. Episodes are written to episodes.csv in chunks, so a
 stopped screening resumes where it stopped (same candidates required).
 
 Selection (agreed rule): a candidate must succeed in the nominal 10 s episode; candidates are
@@ -19,6 +21,7 @@ seeds 0..E-1 only; its top N ("leaders") then run seeds E..M-1 as well (confirma
 ranked again on all M seeds. Rank 1 of the confirmation is the selected controller.
 
     python MAP_Elites/robustness.py --name R1 --runs ME1 ME2 ME3 --top 20 --episodes 10 --workers 12
+    python MAP_Elites/robustness.py --name R1_pt --detector ppo_track --runs ME1_pt ME2_pt --top 10
 Output: MAP_Elites/runs/robustness/<name>/ (candidates.json, config.json, episodes.csv,
         summary.json, ranking.csv)
 """
@@ -41,7 +44,7 @@ if str(HERE) not in sys.path:
 
 import problem as P                                # noqa: E402  (also puts Evaluation/ and Controllers/ on the path)
 import evaluate as harness                         # noqa: E402
-from report import failure_mode, wilson            # noqa: E402
+from report import DETECTORS, failure_mode, succeeded, wilson   # noqa: E402
 from three_phase_flip import FlipParams, ThreePhaseFlip   # noqa: E402
 
 EPISODE_SECONDS = 10.0
@@ -70,18 +73,18 @@ def select_candidates(runs_dir, runs, top: int) -> list[dict]:
     return cands
 
 
-def jobs_for(cands, episodes: int) -> list[tuple]:
+def jobs_for(cands, episodes: int, detector: str = "section04") -> list[tuple]:
     jobs = []
     for c in cands:
         for name in CONDITIONS:
             for seed in ([0] if name == "nominal" else range(episodes)):
-                jobs.append((c["id"], tuple(c["genome"]), name, int(seed)))
+                jobs.append((c["id"], tuple(c["genome"]), name, int(seed), detector))
     return jobs
 
 
 def run_job(job) -> dict:
     """Worker: one 10 s episode of one candidate under one condition."""
-    cid, genome, name, seed = job
+    cid, genome, name, seed, detector = job
     try:
         r = harness.run_episode(ThreePhaseFlip(FlipParams.from_array(np.array(genome))), seed,
                                 episode_seconds=EPISODE_SECONDS, condition=CONDITIONS[name])
@@ -89,8 +92,8 @@ def run_job(job) -> dict:
         return dict(candidate=cid, condition=name, seed=seed, success=False,
                     failure_mode=f"error: {e}"[:120], control_effort=None, max_alt_loss_m=None,
                     pitch_travel_deg=None, final_tilt_deg=None, t_recovered_s=None)
-    return dict(candidate=cid, condition=name, seed=seed, success=bool(r.success),
-                failure_mode=failure_mode(r), control_effort=r.control_effort,
+    return dict(candidate=cid, condition=name, seed=seed, success=succeeded(r, detector),
+                failure_mode=failure_mode(r, detector), control_effort=r.control_effort,
                 max_alt_loss_m=r.max_alt_loss_m,
                 pitch_travel_deg=float(np.degrees(r.detector["pitch_travel_rad"])),
                 final_tilt_deg=r.final_tilt_deg, t_recovered_s=r.t_recovered_s)
@@ -104,7 +107,7 @@ def read_episodes(path) -> list[dict]:
 
 
 def screen(out_dir, cands, episodes: int, workers: int = 1, chunk: int = 240, log=print,
-           subset=None) -> list[dict]:
+           subset=None, detector: str = "section04") -> list[dict]:
     """Run every (candidate, condition, seed) not yet in episodes.csv; returns all episode rows.
     `subset` (candidate ids) restricts the new episodes to those candidates (confirmation stage)."""
     out = Path(out_dir)
@@ -116,7 +119,7 @@ def screen(out_dir, cands, episodes: int, workers: int = 1, chunk: int = 240, lo
     epath = out / "episodes.csv"
     done = {(r["candidate"], r["condition"], r["seed"]) for r in read_episodes(epath)}
     run_cands = cands if subset is None else [c for c in cands if c["id"] in set(subset)]
-    todo = [j for j in jobs_for(run_cands, episodes) if (j[0], j[2], j[3]) not in done]
+    todo = [j for j in jobs_for(run_cands, episodes, detector) if (j[0], j[2], j[3]) not in done]
     log(f"{len(run_cands)} candidates, {len(done)} episodes done, {len(todo)} to run")
     new_file = not epath.exists()
     t0 = time.time()
@@ -186,13 +189,14 @@ def format_ranking(ranking, limit=None) -> str:
     return "\n".join(lines)
 
 
-def select(out_dir, cands, episodes, confirm, confirm_episodes, workers=1, log=print) -> dict:
+def select(out_dir, cands, episodes, confirm, confirm_episodes, workers=1, log=print,
+           detector: str = "section04") -> dict:
     """Stage 1 (all candidates, seeds < episodes) -> leaders -> confirmation (seeds < confirm_episodes)."""
-    rows = screen(out_dir, cands, episodes, workers, log=log)
+    rows = screen(out_dir, cands, episodes, workers, log=log, detector=detector)
     stage1 = rank(rows, cands, max_seed=episodes)
     leaders = [d["id"] for d in stage1 if d["nominal_ok"]][:confirm]
     if leaders and confirm_episodes > episodes:
-        rows = screen(out_dir, cands, confirm_episodes, workers, log=log, subset=leaders)
+        rows = screen(out_dir, cands, confirm_episodes, workers, log=log, subset=leaders, detector=detector)
     if confirm == 0:                                   # no confirmation: select from stage 1
         final = [d for d in stage1 if d["nominal_ok"]]
     else:
@@ -223,6 +227,8 @@ def main():
     ap.add_argument("--confirm", type=int, default=5, help="stage-1 leaders re-tested (0 = no confirmation)")
     ap.add_argument("--confirm-episodes", type=int, default=50, help="episodes per condition for the leaders")
     ap.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 2) - 1))
+    ap.add_argument("--detector", choices=DETECTORS, default="section04",
+                    help="detector that judges success (default section04, as in R1)")
     a = ap.parse_args()
     if a.top < 1 or a.episodes < 1 or a.confirm < 0:
         ap.error("--top and --episodes must be >= 1 and --confirm >= 0")
@@ -233,12 +239,14 @@ def main():
     cfg = dict(runs=a.runs, top=a.top, episodes=a.episodes, confirm=a.confirm,
                confirm_episodes=a.confirm_episodes, episode_seconds=EPISODE_SECONDS,
                conditions={k: vars(v) for k, v in CONDITIONS.items()})
+    if a.detector != "section04":          # old screenings (R1) keep their config.json unchanged
+        cfg["detector"] = a.detector
     cfg_path = out / "config.json"
     if cfg_path.exists() and json.loads(cfg_path.read_text(encoding="utf-8")) != json.loads(json.dumps(cfg)):
         raise SystemExit(f"{out} was screened with other settings; use another --name")
     out.mkdir(parents=True, exist_ok=True)
     cfg_path.write_text(json.dumps(cfg, indent=1), encoding="utf-8")
-    summary = select(out, cands, a.episodes, a.confirm, a.confirm_episodes, a.workers)
+    summary = select(out, cands, a.episodes, a.confirm, a.confirm_episodes, a.workers, detector=a.detector)
     print("\nStage 1 (seeds 0-%d), top 15:" % (a.episodes - 1))
     print(format_ranking(summary["stage1"], 15))
     if summary["confirmation"]:
