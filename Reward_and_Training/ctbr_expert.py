@@ -7,7 +7,7 @@ Two uses:
      (if this expert fails, no policy in that space can succeed).
   2. Demonstrations for behaviour-cloning warm-start of PPO (train_ppo.py --bc-episodes),
      the standard remedy when on-policy exploration cannot discover a manoeuvre that
-     only pays off once fully committed to (see reward_log.md, runs 5-8).
+     only pays off once fully committed to (reward runs 5-8, Table 6 of the report).
 
 The expert only produces actions in [-1, 1]^4 exactly like the policy; the same
 CTBRMapper turns them into motor commands.

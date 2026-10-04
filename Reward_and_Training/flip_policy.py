@@ -82,7 +82,7 @@ class ActorObsBuilder:
         """pos_integral=True appends the time-integral of the position error w.r.t. the
         episode's start position (3 values, m·s / i_scale). This gives a memoryless
         policy the INTEGRAL state that a PID uses to reject steady wind (depth
-        experiment 5, see README_depth.md). Anti-windup: clipped to ±i_limit m·s."""
+        experiment 5 of the run_all.bat study). Anti-windup: clipped to ±i_limit m·s."""
         self.cfg = obs_cfg
         self.tracker = FlipProgressTracker(direction, eps_full)
         self.pos_integral = bool(pos_integral)

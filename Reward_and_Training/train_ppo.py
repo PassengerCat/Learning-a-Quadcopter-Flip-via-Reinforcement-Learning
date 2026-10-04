@@ -16,7 +16,7 @@ What it does
   The best model by (success, -altitude loss) is kept as best_model.zip.
 * Everything needed to reload the policy is written to <run>/config.json.
 
-The defaults are the final configuration (run-9 in reward_log.md).
+The defaults are the final configuration (run 9 in Table 6 of the report).
 
 Examples
 --------

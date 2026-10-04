@@ -23,7 +23,7 @@ hover. This module implements the reward architecture agreed in §03:
             bonus paid after the flip (alive_after_flip).
 
 Every term that differs from the first §03 design was added in response to a
-measured failure; see reward_log.md (runs 1-9).
+measured failure (reward runs 1-9, Table 6 of the report).
 
 Design invariants (do NOT break):
   * The reward NEVER reads the success signal. `SuccessDetector` is a *separate*
@@ -36,7 +36,7 @@ Design invariants (do NOT break):
     telescoping argument holds for r_shape. `alpha` (or its trig encoding) must
     therefore be part of the policy observation (flip_policy.FlipProgressTracker
     reproduces it from raw observations). The w_prog / b_upright terms are NOT
-    potentials -- deliberate, bounded, goal-aligned exceptions (reward_log.md).
+    potentials -- deliberate, bounded, goal-aligned exceptions.
 
 State layout
 ------------
@@ -268,7 +268,7 @@ class FlipRewardConfig:
     k_up_g: float = 5.0               # attitude sharpness inside b_upright (run-9 = k_g = 5; run-11
                                       #   tried 2.0: holding position in wind needs ~10-15 deg of lean)
     k_up_p: float = 0.0               # ... *exp(-k_up_p |xy - xy0|^2) "near where you started"
-                                      #   (run-9 = 0; run-11 tried 0.1 — see reward_log.md)
+                                      #   (run-9 = 0; run-11 tried 0.1)
     b_crash: float = 5.0              # one-off penalty on unstable termination
 
     # thresholds for the *reward-internal* hold bonus (NOT the official success test)
