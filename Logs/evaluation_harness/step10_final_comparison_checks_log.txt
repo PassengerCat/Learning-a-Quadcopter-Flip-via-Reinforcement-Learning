@@ -1,6 +1,0 @@
-Final comparison CLI (cloud, temporary test deleted after passing; no training)
-
-1) CLI under 'spawn' with 2 workers: 5 controllers x 2 conditions x 2 episodes; episodes.csv, summary.json per condition, summary.txt, config.json
-2) parallel results equal direct serial harness calls (map_elites_final under stress, random nominal), rows sorted by seed
-3) existing run name refused; --episodes 0 rejected; unknown controller rejected
-ALL CHECKS PASSED (49 s)

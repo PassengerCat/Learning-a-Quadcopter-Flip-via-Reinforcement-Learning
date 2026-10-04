@@ -1,9 +1,0 @@
-Stress condition 3: perturbed initial state (cloud, temporary test script deleted after passing; no training)
-
-1) NOMINAL, OBS_NOISE and WIND episodes identical to the previous harness (seeds 0, 2)
-2) negative / NaN / inf magnitudes rejected; init_tilt_deg >= 15 deg (detector upright cone) rejected
-3) 2000 drawn starts: unit quaternions with zero yaw part, tilt in [0, 5] deg (mean 2.50), tilt axis uniform (quadrants [513, 490, 495, 461]), velocity and rates uniform within +-0.2 (std ratio ok); same seed -> same start; global numpy and Python RNGs untouched
-4) episode starts exactly at the drawn quat/vel/omega (true state and the controller's first observation); position unchanged; the first integrated 5 ms moves the position by v*dt and the attitude by the initial body rates -> the integrator restarts from the perturbed state. Simulator property found: env.step integrates to the current env.t before advancing it, so the first step is a no-op and reported states lag one dt (same for every controller)
-5) PERTURBED_START episodes reproducible per seed in either order, seeds differ, the detector records an upright start; all three disturbances together are reproducible too
-6) informative: default flip under PERTURBED_START (tilt <= 5 deg, rates and velocity <= 0.2), 10 s, seeds 0-9: 10/10; failure reasons none
-ALL PERTURBED-START CHECKS PASSED

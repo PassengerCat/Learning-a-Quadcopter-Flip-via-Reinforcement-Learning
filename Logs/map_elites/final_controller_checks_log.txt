@@ -1,6 +1,0 @@
-Final MAP-Elites controller package (cloud, temporary test deleted after passing; no training)
-
-1) stored genome equals the ME2_s1 cell (4,5) elite of the archive exactly
-2) loaded controller: 10 s nominal episode succeeds, fitness -0.6924 (expected -0.692), reproducible
-3) extra key, missing key and NaN value rejected
-ALL CHECKS PASSED

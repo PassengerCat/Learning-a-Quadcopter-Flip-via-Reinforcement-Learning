@@ -1,9 +1,0 @@
-Baselines in the universal harness (cloud, temporary test deleted after passing; no training)
-
-1) adapter calls the controller on steps 0,4,8,... and holds the action; float32 actions; diagnostics as info; bad k / unknown name rejected
-2) make_baseline builds the same controllers as the PPO track's make_controller on their action-repeat-4 env (same decision period 0.02 s and vehicle model)
-3) bit-exact parity over 2 s (100 decisions; random: its 70 full decisions before the crash): their ActionRepeat rollout and our harness+adapter give identical actions, positions and quaternions for scripted_flip, pid_hover and random (with the simulator's default sensor noise, as in their env)
-4) informative nominal 10 s seeds 0-4: random        0/5  reasons ['FAIL: crashed (unstable termination)']
-4) informative nominal 10 s seeds 0-4: pid_hover     0/5  reasons ['FAIL: never inverted (min gz=+1.00)']
-4) informative nominal 10 s seeds 0-4: scripted_flip 5/5  reasons ['SUCCESS: flip + final upright hover, no crash, in regio']
-ALL CHECKS PASSED (38 s)

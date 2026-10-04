@@ -1,7 +1,0 @@
-Demo video renderer (cloud, temporary test deleted after passing; no training)
-
-1) body axes equal the simulator's quat2Dcm columns (200 random quaternions); a +90 deg pitch points the nose up in the side view
-2) 3 s nominal episode at 10 fps -> GIF with 31 frames (0..3 s) and a PNG still of the inverted moment (3 s)
-3) --seconds 0 and --fps 0 rejected
-ALL CHECKS PASSED
-Visual inspection: PNG still of the inverted moment (square view, nose to the rear at ~190 deg, thrust pointing down) looks correct; a 6 s stress example rendered with verdict FAIL (never inverted, gz -0.93).
