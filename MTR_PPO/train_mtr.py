@@ -4,13 +4,14 @@ no demonstrations).
     python MTR_PPO/train_mtr.py --dry-run                     # pipeline check, no learning
     python MTR_PPO/train_mtr.py --smoke                       # ~minutes, tiny learning run
 
-The final recipe (all options below), from a fresh network:
+The final recipe (all options below), from a fresh network. The reported models (runs 13 and
+14) are the final models of these two runs; --action-mode motors gives the motors model:
 
     python MTR_PPO/train_mtr.py --action-mode ctbr --seed 0 --kernels dense --ref-start-prob 0.5 \
-        --backtrack-deg 30 --alive-bonus 0.5 --alive-speed-k 1
+        --backtrack-deg 30 --alive-bonus 0.5 --alive-speed-k 1 --axis-term --axis-limit-deg 40 \
+        --axis-penalty 2 --timesteps 3000000
 
-The CTBR model in models/ctbr_seed0/ was trained in three stages, each continuing from the
-previous one with --init-model (Logs/MTR_PPO/README.md lists the exact commands).
+Each training run's options are recorded in its config.json (Logs/MTR_PPO/runs/).
 
 PPO (Stable-Baselines3) with the PPO track's asymmetric actor-critic (the actor reads the 25
 tracking observations, the critic also the 26 privileged ones), on make_mtr_env workers:
