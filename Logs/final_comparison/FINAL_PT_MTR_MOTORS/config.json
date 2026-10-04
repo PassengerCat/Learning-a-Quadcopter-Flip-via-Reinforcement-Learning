@@ -1,0 +1,16 @@
+{
+ "name": "FINAL_PT_MTR_MOTORS",
+ "episodes": 50,
+ "seed0": 10000,
+ "controllers": [
+  "ppo_mtr_motors"
+ ],
+ "conditions": [
+  "nominal",
+  "ppo_track_nominal",
+  "ppo_track_stress"
+ ],
+ "detector": "ppo_track",
+ "workers": 2,
+ "block": 5
+}

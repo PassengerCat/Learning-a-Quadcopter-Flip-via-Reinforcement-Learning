@@ -1,0 +1,9 @@
+controller               success  t_flip   t_rec  int wx  int wy  int wz  max axis dev  heading end
+---------------------------------------------------------------------------------------------------
+Scripted flip               True    1.30    1.48       0     357       0           0.0          0.0
+Three-phase (default)       True    0.62    0.84       0     358       0           0.0         -0.0
+MAP-Elites                  True    1.52    2.30       0     363       0           0.0         -0.0
+BC-PPO                      True    0.60    1.62      12     364      -1           5.8        -44.9
+MTR-PPO (CTBR)              True    0.48    0.84      16     366      -8           5.8          0.1
+MTR-PPO (motors)            True    0.50    0.74      24     363      -6           8.5          0.3
+(nominal episode; integrals in degrees over [0, t_flip + 0.3 s]; axis deviation = angle of the body y-axis from its start direction in that window; heading = yaw change at the end of the episode; t_flip, t_rec and success by the primary detector)

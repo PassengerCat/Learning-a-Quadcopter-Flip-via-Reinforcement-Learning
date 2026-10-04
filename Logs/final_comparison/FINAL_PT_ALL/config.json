@@ -1,0 +1,23 @@
+{
+ "name": "FINAL_PT_ALL",
+ "episodes": 50,
+ "seed0": 10000,
+ "controllers": [
+  "pid_hover",
+  "scripted_flip",
+  "three_phase_default",
+  "map_elites_final",
+  "bc_only",
+  "bc_ppo",
+  "ppo_mtr",
+  "ppo_mtr_motors"
+ ],
+ "conditions": [
+  "nominal",
+  "ppo_track_nominal",
+  "ppo_track_stress"
+ ],
+ "detector": "ppo_track",
+ "workers": 12,
+ "block": 5
+}

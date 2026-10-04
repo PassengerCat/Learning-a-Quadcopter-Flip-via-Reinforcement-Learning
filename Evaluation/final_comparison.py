@@ -7,6 +7,9 @@ Controllers
     pid_hover            §02 cascaded PID that never flips (floor for "does nothing")
     random               §02 uniform random motor commands (floor)
     ppo_mtr              MTR-PPO, CTBR actions (MTR_PPO/models/ctbr_seed0/final_model.zip)
+    ppo_mtr_motors       MTR-PPO, motor commands (MTR_PPO/models/motors_seed0/final_model.zip)
+    bc_ppo               BC-PPO, the PPO track's delivered policy (Reward_and_Training/models/ppo_flip.zip)
+    bc_only              its behaviour-cloning warm start alone (Reward_and_Training/models/bc_flip.zip)
 Conditions
     nominal              the brief's benchmark: no noise, no wind, nominal start (primary result)
     action_noise_005     motor-command noise 0.05, simulator sensor noise off   (run FINAL)
@@ -27,6 +30,8 @@ episode on every seed; the seeds still matter for random and for the noisy condi
         --conditions nominal ppo_track_nominal ppo_track_stress --controllers map_elites_final scripted_flip
     python Evaluation/final_comparison.py --name FINAL_PT_MTR --detector ppo_track --seed0 10000 \
         --conditions nominal ppo_track_nominal ppo_track_stress --controllers ppo_mtr
+    python Evaluation/final_comparison.py --name FINAL_PT_MTR_MOTORS --detector ppo_track --seed0 10000 \
+        --conditions nominal ppo_track_nominal ppo_track_stress --controllers ppo_mtr_motors
 Output: Evaluation/runs/<name>/<condition>/ (episodes.csv, summary.json) and summary.txt
 """
 from __future__ import annotations
@@ -48,9 +53,13 @@ for _p in (HERE, REPO / "Controllers", REPO / "Baselines"):
 import evaluate as harness                                   # noqa: E402
 from report import DETECTORS, format_table, write_results   # noqa: E402
 
-CONTROLLERS = ("map_elites_final", "three_phase_default", "scripted_flip", "pid_hover", "random", "ppo_mtr")
-DEFAULT_CONTROLLERS = CONTROLLERS[:5]          # the FINAL set; ppo_mtr only on request
-MTR_MODELS = {"ppo_mtr": REPO / "MTR_PPO" / "models" / "ctbr_seed0" / "final_model.zip"}
+CONTROLLERS = ("map_elites_final", "three_phase_default", "scripted_flip", "pid_hover", "random", "ppo_mtr",
+               "ppo_mtr_motors", "bc_ppo", "bc_only")
+DEFAULT_CONTROLLERS = CONTROLLERS[:5]          # the FINAL set; the learned models only on request
+MTR_MODELS = {"ppo_mtr": REPO / "MTR_PPO" / "models" / "ctbr_seed0" / "final_model.zip",
+              "ppo_mtr_motors": REPO / "MTR_PPO" / "models" / "motors_seed0" / "final_model.zip"}
+BC_MODELS = {"bc_ppo": REPO / "Reward_and_Training" / "models" / "ppo_flip.zip",
+             "bc_only": REPO / "Reward_and_Training" / "models" / "bc_flip.zip"}
 CONDITIONS = {"nominal": harness.NOMINAL,
               "action_noise_005": harness.Condition("action_noise_005", action_noise=0.05),
               "stress": harness.STRESS,
@@ -75,6 +84,14 @@ def make_controller(name: str):
         sys.path.insert(0, str(REPO / "MTR_PPO"))
         from mtr_controller import MTRController
         return MTRController(str(MTR_MODELS[name]))           # its config.json sits next to it
+    if name in BC_MODELS:
+        # The PPO track's own controller and decision rate: one decision per 4 simulator steps
+        # (their ActionRepeat), run in the harness through the same adapter as the baselines.
+        sys.path.insert(0, str(REPO / "Reward_and_Training"))
+        from flip_policy import LearnedFlipController
+        from harness_adapter import DecisionRateAdapter
+        cfg = REPO / "Reward_and_Training" / "models" / "config.json"
+        return DecisionRateAdapter(LearnedFlipController(str(BC_MODELS[name]), str(cfg), decision_every=1), 4)
     raise ValueError(f"unknown controller {name!r}; choose from {CONTROLLERS}")
 
 

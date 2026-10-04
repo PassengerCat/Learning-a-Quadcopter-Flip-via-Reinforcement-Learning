@@ -1,0 +1,20 @@
+== nominal (50 episodes, seeds 10000-10049, detector ppo_track) ==
+controller           success        95% CI  alt loss  fin tilt  fin |w|  t_flip   t_rec  effort  failure modes
+--------------------------------------------------------------------------------------------------------------
+ppo_mtr_motors       50/50   [0.93,1.00]     0.20 m     0.0°     0.00    0.46    0.62    0.82  —
+(success, failure modes, t_flip and t_rec by the PPO track's detector)
+ppo_mtr_motors: §04 verdict on the same episodes 0/50
+
+== ppo_track_nominal (50 episodes, seeds 10000-10049, detector ppo_track) ==
+controller           success        95% CI  alt loss  fin tilt  fin |w|  t_flip   t_rec  effort  failure modes
+--------------------------------------------------------------------------------------------------------------
+ppo_mtr_motors       50/50   [0.93,1.00]     0.21 m     0.6°     0.15    0.45    0.63    1.09  —
+(success, failure modes, t_flip and t_rec by the PPO track's detector)
+ppo_mtr_motors: §04 verdict on the same episodes 0/50
+
+== ppo_track_stress (50 episodes, seeds 10000-10049, detector ppo_track) ==
+controller           success        95% CI  alt loss  fin tilt  fin |w|  t_flip   t_rec  effort  failure modes
+--------------------------------------------------------------------------------------------------------------
+ppo_mtr_motors       49/50   [0.90,1.00]     0.23 m     2.2°     0.50    0.45    2.15    6.02  no 0.4 s hold 1
+(success, failure modes, t_flip and t_rec by the PPO track's detector)
+ppo_mtr_motors: §04 verdict on the same episodes 0/50
