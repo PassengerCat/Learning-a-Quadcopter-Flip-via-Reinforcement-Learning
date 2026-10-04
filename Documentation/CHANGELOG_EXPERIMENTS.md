@@ -1263,3 +1263,173 @@ ppo_mtr in nominal: flip by 0.82 s, recovered by 2.16 s, altitude loss 0.06 m. U
 **Next (user):** the motors run with the final recipe from a fresh network, for the comparison of action spaces:
 
 `python MTR_PPO/train_mtr.py --action-mode motors --seed 0 --kernels dense --ref-start-prob 0.5 --backtrack-deg 30 --alive-bonus 0.5 --alive-speed-k 1 --timesteps 3000000 --tag mtr_motors`
+
+## 2026-10-01 — MTR-PPO run 7 (executed by the user): direct motor commands, final recipe from a fresh network. The flip is learned, with roll
+
+**Run:** `python MTR_PPO/train_mtr.py --action-mode motors --seed 0 --kernels dense --ref-start-prob 0.5 --backtrack-deg 30 --alive-bonus 0.5 --alive-speed-k 1 --timesteps 3000000 --tag mtr_motors`, read at about 1.26M steps.
+
+**Training curves (mean per 0.1M steps):**
+
+| steps | 0.1M | 0.3M | 0.4M | 0.6M | 1.0M | 1.2M+ |
+|---|---|---|---|---|---|---|
+| crashed | 0.90 | 0.90 | 0.21 | 0 | 0 | 0 |
+| episode length (s) | 1.2 | 4.1 | 5.7 | 6.0 | 6.0 | 6.0 |
+| passed inverted | 0.83 | 0.99 | 1.0 | 1.0 | 1.0 | 1.0 |
+| episode return | 0.08 | 0.49 | 1.35 | 3.82 | 4.98 | 5.08 |
+
+**Harness evaluation during training** (10 nominal episodes): all crash at 0.2M. From 0.4M on, the primary (PPO-track) detector gives 100 %, and the final tilt and rate fall to 0.001° and 0.0003 rad/s at 1.2M. The strict (§04) detector gives 0 %.
+
+With the final recipe from the start and no demonstrations, the policy learns the flip and the recovery with direct motor commands in about 0.4M steps. The ablation of the PPO track with motor commands (its own reward) gave 0 %.
+
+**Why the strict detector fails (1.2M checkpoint, one nominal episode, cloud):**
+
+- The primary detector passes it: flip by 0.52 s, recovered by 1.04 s, altitude loss 0.11 m.
+- The strict detector reports "rotation incomplete (325°)". The policy rolls during the flip (|ω_x| up to 9.8 rad/s, ∫ω_x ≈ −154°) and ends with its heading turned by 32°.
+- Gravity still sweeps a full circle in the body x-z plane, so the geometric revolution is 360°. The pitch component of the quaternion increments, which the strict detector counts, is only 325°.
+- The brief asks for a rotation about the pitch axis. Nothing in the reward asks the rotation to stay about one axis: the reference is defined by the thrust direction, and the rate term only weighs the roll rate among the three rate errors.
+
+## 2026-10-01 — MTR-PPO step 12: pitch-axis reward term (`--axis-term`)
+
+**Decision (user):** discourage the roll and heading change of the motors policy with a quick fix, and continue from its checkpoint.
+
+**Change.** In a pure pitch flip the body y-axis (the pitch axis) stays fixed in the world, along the normal of the flip plane, y_des = R_z(ψ_des) e_y. The option `--axis-term` (`MTRRewardConfig.axis_term`, `make_mtr_env(axis_term=…)`) multiplies the reward product by r_axis = Σ_{k∈{1,10}} H(‖R e_y − y_des‖²; k), with ‖R e_y − y_des‖² = 2(1 − R_rel[1,1]).
+
+- It applies in FLIP and in HOVER, so rolling out of the flip plane and turning the heading both cost reward.
+- The coarse kernel is at half value at 60° of axis deviation, the fine one at 18°.
+- The maximum product includes the term's maximum (2), so a perfect flip still earns 1/s.
+- It is the same kind of term as GEAR's: a body-frame invariant of the manoeuvre in a kernel factor.
+- Default off, so runs 1–7 stay reproducible.
+
+**Checks (cloud, scripts deleted):**
+
+- off, it is bit-identical to step 11;
+- on the ideal loop the axis error is 0 and the reward rate exactly 1/s, for 4 headings and both directions;
+- the axis error equals an independent computation on 500 random attitudes;
+- the run-7 policy deviates by 48–58° from the pitch axis during its flips, and its return per episode falls from 4.8–5.2 to 3.8–3.95 with the term on;
+- a trainer dry run (no learning) loads the run-7 checkpoint with the term on.
+
+Log: `Logs/MTR_PPO/checks/step12_axis_term_checks_log.txt`.
+
+**Planned run (user): run 8.** Continue run 7 from its latest checkpoint with `--axis-term`, full randomisation and a lower learning rate, 1M steps:
+
+`python MTR_PPO/train_mtr.py --action-mode motors --seed 0 --kernels dense --ref-start-prob 0.5 --backtrack-deg 30 --alive-bonus 0.5 --alive-speed-k 1 --axis-term --init-model <run 7>/checkpoints/ppo_mtr_1799952_steps.zip --curriculum-frac 0 --timesteps 1000000 --lr 1e-4 --tag mtr_motors_axis`
+
+## 2026-10-01 — MTR-PPO run 8 (executed by the user): motors, fine-tuning from run 7 with the pitch-axis term. Heading kept, roll remains; reported as the motors model
+
+**Run:** the planned command of step 12, from the run-7 checkpoint at 1.8M (run 7 was stopped at about 2.0M steps), 1M steps, 0.76 h on the user's machine.
+
+**Training curves:** the episode return rises from 4.23 to 5.22, the evaluation (10 nominal episodes every 0.2M) gives 100 % by the primary detector at every point with a final tilt below 0.003°, and the exploration std falls from 0.168 to 0.149.
+
+**Harness evaluation of the final model** (`Evaluation/final_comparison.py --name FINAL_PT_MTR_MOTORS --detector ppo_track --seed0 10000 --conditions nominal ppo_track_nominal ppo_track_stress --controllers ppo_mtr_motors`, 50 episodes per condition, primary detector):
+
+| condition | success | 95 % CI | alt loss | t_flip | t_rec | effort |
+|---|---|---|---|---|---|---|
+| nominal | 50/50 | [0.93, 1.00] | 0.20 m | 0.46 s | 0.62 s | 0.82 |
+| ppo_track_nominal | 50/50 | [0.93, 1.00] | 0.21 m | 0.45 s | 0.63 s | 1.09 |
+| ppo_track_stress | 49/50 | [0.90, 1.00] | 0.23 m | 0.45 s | 2.15 s | 6.02 |
+
+The one failure under stress has no 0.4 s hold. Against the CTBR model (FINAL_PT_MTR): stress 49/50 against 36/50, flip 0.46 s against 0.82 s and recovery 0.62 s against 2.16 s in nominal, but an altitude loss of 0.20 m against 0.06 m. Under stress the control effort rises from 0.82 to 6.02.
+
+**Off-axis rotation (cloud check, one nominal episode, script deleted):** the axis term removed the heading change (yaw at the end −0.2° against 32° in run 7), but not the roll: over the flip ∫ω_x = −165° and ∫ω_y = 320°, a rotation about an axis about 27° from the pitch axis, with the body y-axis up to 55° from its start direction. The same check shows that the CTBR model (run 6, trained without the axis term) rotates about the pitch axis (∫ω_x = 2°) but turns its heading during the flip (∫ω_z = 112°, heading 133.5° at the end). Log: `Logs/MTR_PPO/runs/run8_motors_seed0_axis_term/off_axis_rotation_check.txt`.
+
+**Decision (user):** keep the run-8 final model as the reported motors model and report the roll explicitly.
+
+**Added:**
+
+- `MTR_PPO/models/motors_seed0/` (`final_model.zip`, sha256 prefix 0409d7ed341839c8; `config.json` with paths shortened to `<repo>`; README with the two stages);
+- controller `ppo_mtr_motors` in `Evaluation/final_comparison.py` (not in the default set, like `ppo_mtr`);
+- `Logs/MTR_PPO/runs/run7_motors_seed0_scratch/` and `run8_motors_seed0_axis_term/` (`config.json`, `eval_log.csv`, `training_curves.txt`; run 8 also the off-axis check);
+- `Logs/final_comparison/FINAL_PT_MTR_MOTORS/`.
+
+The evaluation above was first run with a scratch script, then repeated with `final_comparison.py` after adding the controller; both give the same numbers.
+
+## 2026-10-01 — MTR-PPO run 9 (executed by the user): CTBR, fine-tuning from run 6 with the pitch-axis term. Heading partly kept, roll appears, less robust; not adopted
+
+**Run:** `python MTR_PPO/train_mtr.py --action-mode ctbr --seed 0 --kernels dense --ref-start-prob 0.5 --backtrack-deg 30 --alive-bonus 0.5 --alive-speed-k 1 --axis-term --init-model MTR_PPO/models/ctbr_seed0/final_model.zip --curriculum-frac 0 --timesteps 1000000 --lr 1e-4 --tag mtr_ctbr_axis`, 1M steps, 0.77 h. The off-axis check of run 8 had shown that the CTBR model turns its heading during the flip (∫ω_z = 112°, heading 133.5° at the end).
+
+**Result.** The episode return rises from 2.78 to 3.06, the evaluation during training stays at 100 % (primary detector) and the exploration std falls from 0.147 to 0.117. Final model, one nominal episode: ∫ω_x = −38° (run 6: 2°), ∫ω_z = 92° (112°), heading at the end 99.4° (133.5°), largest axis deviation 97° (128°). Harness evaluation (scratch script, the conditions of FINAL_PT_MTR, 50 episodes, primary detector): nominal 50/50, ppo_track_nominal 50/50, ppo_track_stress 29/50 [0.44, 0.71] against 36/50 for run 6; recovery 1.42 s against 2.16 s in nominal.
+
+**Reading.** As with the motors in run 8, the soft term redistributes the deviation between heading and roll instead of removing it, and robustness under stress drops.
+
+**Outcome:** run 6 stays the reported CTBR model; run 9 is reported as a negative result. The user moved on to a last attempt with the motors policy (step 13).
+
+## 2026-10-01 — MTR-PPO step 13: one-off pitch-axis penalty (`--axis-limit-deg`, `--axis-penalty`)
+
+**Decision (user):** a last attempt to remove the roll of the motors policy. Ending the episode on a large roll would be the strongest signal, but the brief allows termination only for ground contact, leaving the region, numerical failure and the time limit, and explicitly not for large roll or pitch angles. The change is therefore a reward change only.
+
+**Change.** During FLIP, the first time in an episode that the body y-axis is more than d degrees from the flip plane's normal R_z(ψ_des) e_y (arccos(R_rel[1,1]) > d), the reward of that step drops once by P (`MTRRewardConfig.axis_limit_deg`, `axis_penalty`; `make_mtr_env(axis_limit_deg=…, axis_penalty=…)`; CLI `--axis-limit-deg d --axis-penalty P`, P = 2 by default, d = 0 = off). The deviation is the angle between the two axes, so roll and heading count together and a pure pitch rotation costs nothing; unlike the soft axis term, the policy cannot trade one for the other. A one-off penalty was preferred to withholding the rest of the episode's reward, because the critic cannot observe such a latch, while a penalty appears in the step where it happens. P = 2 is about the difference between the run-8 return (5.3) and a flip that loses half of it; a flip with roll still pays more than no flip. The step info carries `mtr_axis_violation` (logged as `train_flip/mtr_axis_violation`).
+
+**Checks (cloud, scripts deleted):** off, it is bit-identical to step 12; the deviation equals an independent computation on 500 random attitudes, and single-axis rotations give 0 for pitch and the rotation angle for roll and yaw; the run-8 policy is penalised exactly once, at 0.22 s, from hover starts with d = 40° (return 5.35 → 3.35) and never from reference starts or with d = 60°; a trainer dry run loads the run-8 model with the options on. Log: `Logs/MTR_PPO/checks/step13_axis_penalty_checks_log.txt`.
+
+**Planned run (started by Claude on the user's machine at the user's request): run 10.** Continue the reported motors model with the penalty at 40°, 1M steps:
+
+`python MTR_PPO/train_mtr.py --action-mode motors --seed 0 --kernels dense --ref-start-prob 0.5 --backtrack-deg 30 --alive-bonus 0.5 --alive-speed-k 1 --axis-term --axis-limit-deg 40 --axis-penalty 2 --init-model MTR_PPO/models/motors_seed0/final_model.zip --curriculum-frac 0 --timesteps 1000000 --lr 1e-4 --tag mtr_motors_axislim`
+
+## 2026-10-03 — MAP-Elites: the primary detector as validity (`--validity`), and the LHS study re-judged (`descriptor_sampling.py`)
+
+**Decision (user):** the report describes only the primary (PPO-track) detector, so the MAP-Elites measurements (Latin-hypercube study, archives, screening) are repeated with it as the validity check. ME1–ME3, the seed replicates and R1 keep their §04 results; the new runs get new names.
+
+**Change:**
+
+- `problem.py`: `is_valid(result, validity)` and `evaluate_genome(..., validity=...)` with
+  - `section04` (default, unchanged behaviour);
+  - `ppo_track`: the primary detector's latched success, and the episode did not end in a crash or region exit (the crash loophole stays closed);
+  - `--single-turn-check` (with `ppo_track` only): additionally a check that the vehicle turned only once, i.e. the primary detector's final revolution is at most 390° (the §04 limit). The primary detector does not count the turns, so without the check a double flip is valid. It is a flag rather than a third detector because it only adds this one test to the primary verdict.
+- `map_elites.py`: `--validity` for a new run, stored in `config.json` and fixed on `--resume`; old `config.json` files without the field load as `section04`.
+- `robustness.py`: `--detector ppo_track` judges the screening with the primary detector (counted as in `final_comparison.py`); a §04 screening writes the same `config.json` as before.
+- New `descriptor_sampling.py`: re-runs the 401 genomes of the original study (read from `Logs/map_elites/descriptor_sampling/samples.json`) with a chosen validity and writes samples, percentiles, convergence, Spearman correlation and the descriptor figure.
+
+**Checks** (log: `Logs/map_elites/primary_validity_checks_log.txt`): the §04 verdicts of the first 21 genomes reproduce the original study except one, which the documented 2026-09-29 travel-window change explains; with the primary detector 46/60 LHS genomes are valid (§04 at the time: about a quarter), 2 of them double flips (720°), which the single-turn check rejects; resume, refusal of a changed validity and old configs work; the screening writes primary verdicts.
+
+**Decision (user):** primary detector with the single-turn check. **Runs (the user starts them),** the same configurations as before with the suffix `_pt`:
+
+    python MAP_Elites/descriptor_sampling.py --name LHS_pt --validity ppo_track --single-turn-check --workers 12
+    python MAP_Elites/map_elites.py --name ME1_pt --validity ppo_track --single-turn-check --seed 0 --budget 5000 --workers 12
+    (likewise ME1_pt_s1, ME1_pt_s2 with --seed 1, 2; ME2_pt, ME2_pt_s1, ME2_pt_s2 with --bound t_climb=0,1.0; ME3_pt with --bound a_brake=10,150)
+    python MAP_Elites/robustness.py --name R1_pt --detector ppo_track --runs ME1_pt ME2_pt ME3_pt ME1_pt_s1 ME1_pt_s2 ME2_pt_s1 ME2_pt_s2 --top 10 --episodes 10 --workers 12
+
+## 2026-10-02 — MTR-PPO runs 10–12: pitch-axis penalty by fine-tuning the motors model
+
+All three runs continue the previous model with `--axis-term --axis-limit-deg d --axis-penalty 2 --curriculum-frac 0 --lr 1e-4`. Evaluation: harness, 50 episodes, seeds 10000–10049, primary detector (§04 verdict on the same episodes in brackets), conditions of FINAL_PT_MTR. Logs (config, evaluation during training, training curves): `Logs/MTR_PPO/runs/run10_…`, `run11_…`, `run12_…`.
+
+| run | from | d | steps | nominal | ppo_track_nominal | ppo_track_stress |
+|---|---|---|---|---|---|---|
+| 10 | run 8 final (trained in the cloud workspace) | 40° | 1M | 50/50 (0/50) | 50/50 (0/50) | 48/50 (0/50) |
+| 11 | run 10 final | 40° | 1M | 50/50 (0/50) | 50/50 (0/50) | 49/50 (0/50) |
+| 12 | run 11 final | 15° | 2M | 50/50 (50/50) | 50/50 (49/50) | 48/50 (0/50) |
+
+**Reading.** The penalty reduces the off-axis rotation only slowly when it is added to a model that already flies an off-axis flip; run 12 is the first fine-tuned motors model that the §04 detector also accepts in nominal conditions. This motivated training from scratch with all components (runs 13–14).
+
+## 2026-10-03 — MTR-PPO runs 13–14: all components from the first step (reported models)
+
+**Runs (executed by the user):**
+
+    python MTR_PPO/train_mtr.py --action-mode ctbr --seed 0 --kernels dense --ref-start-prob 0.5 --backtrack-deg 30 --alive-bonus 0.5 --alive-speed-k 1 --axis-term --axis-limit-deg 40 --axis-penalty 2 --timesteps 3000000 --tag mtr_ctbr_clean
+    python MTR_PPO/train_mtr.py --action-mode motors --seed 0 --kernels dense --ref-start-prob 0.5 --backtrack-deg 30 --alive-bonus 0.5 --alive-speed-k 1 --axis-term --axis-limit-deg 40 --axis-penalty 2 --timesteps 3000000 --tag mtr_motors_clean
+
+**Model selection (decision, user).** Both reported models are the final models of their runs, the same rule for both action spaces. Choosing the CTBR checkpoint at 1.5M (no hover oscillation) was considered and rejected as a post-hoc choice; it would not have changed the test success rates (table below). From 1.8M steps on, the CTBR evaluation during training shows a final body rate of about 0.3 rad/s in the noise-free hover; this is reported as a result.
+
+**Evaluation** (harness, 50 episodes, seeds 10000–10049, primary detector; §04 verdict in brackets; cloud evaluation with the run files):
+
+| model | nominal | ppo_track_nominal | ppo_track_stress |
+|---|---|---|---|
+| run 13 CTBR, checkpoint at 1.5M (not reported) | 50/50 (50/50) | 50/50 (50/50) | 37/50 (0/50) |
+| run 13 CTBR, checkpoint at 3.0M (2999920 steps) | 50/50 (50/50) | 50/50 (50/50) | 38/50 (1/50) |
+| **run 13 CTBR, final model (reported)** | 50/50 (50/50) | 50/50 (50/50) | 39/50 (1/50) |
+| **run 14 motors, final model (reported)** | 50/50 (50/50) | 50/50 (50/50) | 50/50 (1/50) |
+
+In nominal flight the final CTBR model ends with a body rate of 0.31 rad/s and a control effort of 18.5 (1.5M checkpoint: 0.00 rad/s, 2.4); the hover oscillation is visible in the effort, not in the success rate.
+
+Off-axis rotation in one nominal episode (seed 10000): largest deviation of the pitch axis about 9° (run 13) and 8° (run 14), heading at the end 0.5° and 0.3°, against about 27° of axis tilt for run 8 and a heading change of about 130° for run 6.
+
+**Added:** the two models replace the contents of `MTR_PPO/models/ctbr_seed0/` (run 13 final model, sha256 prefix 73acb74ce9eaf66c) and `MTR_PPO/models/motors_seed0/` (run 14 final, 302b851a49588c8e), with new READMEs. Both zips are copies whose stored `tensorboard_log` path is shortened to `<repo>` (all other entries byte-identical); both `config.json` files have their paths shortened the same way. The motors copy reproduces the earlier evaluation exactly (seeds 10000–10001, nominal and ppo_track_stress); the final CTBR model was evaluated (table above) from its path-shortened copy, through the `ppo_mtr` controller; `Logs/MTR_PPO/runs/run9_…` to `run14_…`; controllers `bc_ppo` and `bc_only` in `Evaluation/final_comparison.py` (the PPO track's delivered policy and its warm start, through `LearnedFlipController` and the baselines' `DecisionRateAdapter`; parity with the earlier scratch evaluation checked on seeds 10000–10001 under ppo_track_stress).
+
+## 2026-10-03 — Report figures: `plot_comparison.py`, `flip_analysis.py`, `plot_training.py`
+
+Three scripts that only read results or run single recorded nominal episodes; outputs go to `Evaluation/runs/figures/` and `MTR_PPO/runs/figures/` (PNG and PDF, plus text and LaTeX tables).
+
+- `Evaluation/plot_comparison.py --runs <final-comparison runs>`: success rate per controller and condition (small multiples), with the 95% Wilson interval for the noisy conditions and pass/fail for the deterministic nominal condition.
+- `Evaluation/flip_analysis.py`: one nominal episode per controller; time series of rotation, altitude change, pitch-axis deviation and body rate, and the off-axis table (integrated body rates over the flip, largest axis deviation, final heading). This makes the earlier scratch off-axis checks reproducible from the repository.
+- `MTR_PPO/plot_training.py LABEL=PATH ...`: return, evaluation success and final body rate during training, from a training run folder or from `Logs/MTR_PPO/runs/`.
+
+Checks: `Logs/evaluation_harness/report_figures_checks_log.txt`.
