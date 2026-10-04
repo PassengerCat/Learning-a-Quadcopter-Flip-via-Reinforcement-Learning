@@ -1,6 +1,6 @@
 # MTR-PPO logs
 
-- `checks/`: one log per development step (steps 1–10, plus step 11 for the rename). Each records checks run in the cloud with a temporary script that was deleted after it passed. No check involved training.
+- `checks/`: one log per development step (steps 1–10, step 11 for the rename, step 12 for the pitch-axis term). Each records checks run in the cloud with a temporary script that was deleted after it passed. No check involved training.
 - `runs/`: one folder per training run, executed by the user. Each holds `config.json` (absolute local paths shortened to `<repo>`), `eval_log.csv` (harness evaluation during training), `training_curves.txt` (from TensorBoard) and, where needed, a replay of the policy.
 
 | Run | Start | Added | Steps | Outcome |
@@ -10,7 +10,9 @@
 | 3 | fresh | dense kernels | 2.95M | swing exploit, no flip |
 | 4 | fresh | + termination on turning back | 1.5M used | flip learned, no recovery |
 | 5 | run 4 at 1.5M | + survival bonus | 1.0M | survives, drifts away |
-| 6 | run 5 final | + speed weighting | 1.0M | flip and recovery: the reported model |
+| 6 | run 5 final | + speed weighting | 1.0M | flip and recovery: the reported CTBR model |
+| 7 | fresh | motor commands, the run-6 recipe from the start | 2.0M (1.8M used) | flip and recovery, with roll and a heading change |
+| 8 | run 7 at 1.8M | + pitch-axis term | 1.0M | heading kept, roll remains: the reported motors model |
 
 ## Names used before the rename (step 11)
 

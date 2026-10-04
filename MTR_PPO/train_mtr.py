@@ -25,6 +25,11 @@ tracking observations, the critic also the 26 privileged ones), on make_mtr_env 
   * --alive-bonus b: after the flip (HOVER), b per second while airborne, weighted by
     uprightness (default 0: off); --alive-speed-k k also weights it by 1 / (1 + k |v|^2), so it
     pays for stopping (default 0: no speed weighting);
+  * --axis-term: multiply the reward by a pitch-axis kernel, so that rolling out of the flip
+    plane or turning the heading costs reward (default off);
+  * --axis-limit-deg d, --axis-penalty P: during the flip, the first time the pitch axis deviates
+    by more than d degrees, the reward drops once by P (d = 0 = off, default; P = 2). Nothing
+    is terminated: the environment's termination conditions stay as the brief requires;
   * --init-model path: start from a saved model (fine-tuning, e.g. a second stage for the
     recovery) instead of a fresh network. The network, its action spread and the observation
     layout come from the file; the PPO settings, schedules and environment from this command.
@@ -71,7 +76,7 @@ for _p in (os.path.join(_REPO, "Evaluation"), _REPO):
 import evaluate as harness                                                           # noqa: E402
 
 INFO_KEYS = ("flip_success", "flip_inverted", "crashed", "flip_rev", "mtr_task", "mtr_ref_start",
-             "mtr_backtrack")
+             "mtr_backtrack", "mtr_axis_violation")
 
 
 def linear(start: float, end: float):
@@ -235,6 +240,11 @@ def parse_args(argv=None):
                    help="post-flip survival bonus per second, weighted by uprightness (0 = off)")
     p.add_argument("--alive-speed-k", type=float, default=0.0,
                    help="weight the survival bonus by 1 / (1 + k |v|^2) (0 = no speed weighting)")
+    p.add_argument("--axis-term", action="store_true",
+                   help="multiply the reward by the pitch-axis kernel (pure pitch flip, heading kept)")
+    p.add_argument("--axis-limit-deg", type=float, default=0.0,
+                   help="FLIP: one-off penalty when the pitch axis first deviates beyond this [deg] (0 = off)")
+    p.add_argument("--axis-penalty", type=float, default=2.0, help="size of that one-off penalty (return units)")
     p.add_argument("--init-model", default=None,
                    help="start from this saved model (.zip) instead of a fresh network (fine-tuning)")
     p.add_argument("--rate-max", type=float, default=20.0, help="CTBR roll/pitch rate limit [rad/s]")
@@ -268,6 +278,10 @@ def parse_args(argv=None):
         p.error("--ref-start-prob must be in [0, 1]")
     if not 0.0 <= a.backtrack_deg < 360.0:
         p.error("--backtrack-deg must be in [0, 360)")
+    if not 0.0 <= a.axis_limit_deg < 180.0:
+        p.error("--axis-limit-deg must be in [0, 180)")
+    if not 0.0 <= a.axis_penalty < float("inf"):
+        p.error("--axis-penalty must be finite and >= 0")
     if not 0.0 <= a.alive_bonus < float("inf"):
         p.error("--alive-bonus must be finite and >= 0")
     if not 0.0 <= a.alive_speed_k < float("inf"):
@@ -286,7 +300,8 @@ def main(argv=None):
                       omega_range=(a.omega_min, a.omega_max), radius=a.radius, max_tilt_deg=a.max_tilt_deg,
                       max_rate=a.max_rate, max_vel=a.max_vel, rate_max=a.rate_max,
                       ref_start_prob=a.ref_start_prob, kernels=a.kernels, backtrack_deg=a.backtrack_deg,
-                      alive_bonus=a.alive_bonus, alive_speed_k=a.alive_speed_k)
+                      alive_bonus=a.alive_bonus, alive_speed_k=a.alive_speed_k, axis_term=a.axis_term,
+                      axis_limit_deg=a.axis_limit_deg, axis_penalty=a.axis_penalty)
     probe = make_mtr_env(**env_kwargs)
     run_cfg = dict(action_mode=a.action_mode, action_repeat=4,
                    ctbr=probe.mapper.config() if probe.mapper is not None else None,

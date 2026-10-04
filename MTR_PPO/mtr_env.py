@@ -24,6 +24,9 @@ asymmetric critic with privileged state, independent success detector for loggin
     reproduces the environment of runs 1-3 exactly.
   * optional post-flip survival bonus (alive_bonus, per second; see mtr_reward), optionally
     weighted by speed (alive_speed_k). 0 = off.
+  * optional pitch-axis reward term (axis_term; see mtr_reward). Off by default.
+  * optional pitch-axis penalty (axis_limit_deg, axis_penalty; see mtr_reward): a one-off
+    penalty the first time the flip leaves the pitch axis. A reward change only; it terminates nothing.
 No demonstration starts, no noisy-hover init steps, no wind.
 
     env = make_mtr_env(action_mode="ctbr")      # or "motors"
@@ -152,7 +155,8 @@ class MTRFlipEnv(FlipTaskEnv):
         if backtrack:
             terminated = True
         info.update(mtr_task=float(self.mtr_obs.task), mtr_omega=float(self.command.omega),
-                    mtr_ref_start=float(self.ref_start), mtr_backtrack=float(backtrack))
+                    mtr_ref_start=float(self.ref_start), mtr_backtrack=float(backtrack),
+                    mtr_axis_violation=float(rw.axis_violated))
         return obs, r, terminated, truncated, info
 
 
@@ -161,14 +165,23 @@ def make_mtr_env(action_mode: str = "ctbr", action_repeat: int = 4, episode_seco
                   max_tilt_deg: float = 10.0, max_rate: float = 1.0, max_vel: float = 0.5,
                   curriculum: float = 0.0, rate_max: float = 20.0, max_abs_z: float = 5.0,
                   ref_start_prob: float = 0.0, kernels: str = "narrow", backtrack_deg: float = 0.0,
-                  alive_bonus: float = 0.0, alive_speed_k: float = 0.0, seed: Optional[int] = None) -> MTRFlipEnv:
+                  alive_bonus: float = 0.0, alive_speed_k: float = 0.0, axis_term: bool = False,
+                  axis_limit_deg: float = 0.0, axis_penalty: float = 2.0,
+                  seed: Optional[int] = None) -> MTRFlipEnv:
     """One fully wired environment (one reward and one detector instance per env)."""
     if not 0.0 <= float(alive_bonus) < np.inf:
         raise ValueError(f"alive_bonus must be finite and >= 0, got {alive_bonus}")
     if not 0.0 <= float(alive_speed_k) < np.inf:
         raise ValueError(f"alive_speed_k must be finite and >= 0, got {alive_speed_k}")
+    if not 0.0 <= float(axis_limit_deg) < 180.0:
+        raise ValueError(f"axis_limit_deg must be in [0, 180), got {axis_limit_deg}")
+    if not 0.0 <= float(axis_penalty) < np.inf:
+        raise ValueError(f"axis_penalty must be finite and >= 0, got {axis_penalty}")
     reward = MultiplicativeTrackingReward(MTRRewardConfig(kernels=kernels, b_alive_hover=float(alive_bonus),
-                                                 alive_speed_k=float(alive_speed_k)))
+                                                 alive_speed_k=float(alive_speed_k),
+                                                 axis_term=bool(axis_term),
+                                                 axis_limit_deg=float(axis_limit_deg),
+                                                 axis_penalty=float(axis_penalty)))
     flip = make_flip_env(action_repeat=action_repeat, obs_cfg=ObsConfig(), reward_fn=reward,
                          max_abs_z=max_abs_z, episode_seconds=episode_seconds, seed=None)
     env = MTRFlipEnv(flip.env, flip.cfg, reward, SuccessConfig(flip_direction=reward.cfg.flip_direction),

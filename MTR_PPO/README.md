@@ -12,7 +12,8 @@ Pure-RL PPO for one 360° pitch flip followed by recovery to hover. There is no 
 | `mtr_env.py` | `MTRFlipEnv`, `make_mtr_env`: the training environment on the PPO track's `FlipTaskEnv` |
 | `mtr_controller.py` | `MTRController`: the trained policy behind the course interface (evaluation harness) |
 | `train_mtr.py` | the training script (`--help` lists every option) |
-| `models/ctbr_seed0/` | the reported model (CTBR actions) and its run configuration |
+| `models/ctbr_seed0/` | the reported model with CTBR actions (controller `ppo_mtr`) and its run configuration |
+| `models/motors_seed0/` | the reported model with direct motor commands (controller `ppo_mtr_motors`) and its run configuration |
 | `runs/` | training outputs (ignored by git) |
 
 The PPO track's modules in `Reward_and_Training/` are used unchanged: `FlipTaskEnv`, the asymmetric actor-critic policy, the CTBR rate loop and her success detector.
@@ -26,6 +27,8 @@ The PPO track's modules in `Reward_and_Training/` are used unchanged: `FlipTaskE
 | Reference state initialisation | half of the training episodes start on the loop at a random phase |
 | Termination on turning back | during FLIP, the episode ends if the revolution falls 30° below its maximum (removes a swing exploit) |
 | Post-flip survival bonus | during HOVER only: 0.5/s × (1 + cos tilt)/2 × 1/(1 + \|v\|²) (pays for stopping upright) |
+| Pitch-axis term (optional, `--axis-term`) | multiplies the product by Σ_{k∈{1,10}} H(\|R e_y − R_z(ψ) e_y\|²; k), so the flip stays a pure pitch flip and the heading is kept |
+| Pitch-axis penalty (optional, `--axis-limit-deg d --axis-penalty P`) | during FLIP, the first time the pitch axis deviates by more than d (roll and heading together), the reward drops once by P; nothing is terminated |
 | Actions | CTBR (collective thrust and body rates, through the PPO track's fixed rate loop) or direct motor commands; 50 Hz decisions |
 | Observation | actor 25 values (relative state, previous action, task, ω); critic also the 26 privileged values |
 
@@ -34,5 +37,11 @@ The PPO track's modules in `Reward_and_Training/` are used unchanged: `FlipTaskE
     python MTR_PPO/train_mtr.py --dry-run
     python MTR_PPO/train_mtr.py --action-mode motors --seed 0 --kernels dense --ref-start-prob 0.5 --backtrack-deg 30 --alive-bonus 0.5 --alive-speed-k 1
     python Evaluation/final_comparison.py --name FINAL_PT_MTR --detector ppo_track --seed0 10000 --episodes 50 --conditions nominal ppo_track_nominal ppo_track_stress --controllers ppo_mtr
+    python Evaluation/final_comparison.py --name FINAL_PT_MTR_MOTORS --detector ppo_track --seed0 10000 --episodes 50 --conditions nominal ppo_track_nominal ppo_track_stress --controllers ppo_mtr_motors
 
-The reported CTBR model was trained in three stages with `--init-model` (`models/ctbr_seed0/README.md`). The development history, every check and every run are in `Documentation/CHANGELOG_EXPERIMENTS.md` and `Logs/MTR_PPO/`.
+The reported models (runs 13 and 14) were each trained from a fresh network with every component from the first step:
+
+    python MTR_PPO/train_mtr.py --action-mode ctbr --seed 0 --kernels dense --ref-start-prob 0.5 --backtrack-deg 30 --alive-bonus 0.5 --alive-speed-k 1 --axis-term --axis-limit-deg 40 --axis-penalty 2 --timesteps 3000000 --tag mtr_ctbr_clean
+    python MTR_PPO/train_mtr.py --action-mode motors --seed 0 --kernels dense --ref-start-prob 0.5 --backtrack-deg 30 --alive-bonus 0.5 --alive-speed-k 1 --axis-term --axis-limit-deg 40 --axis-penalty 2 --timesteps 3000000 --tag mtr_motors_clean
+
+Both reported models are the final models of their runs (`models/ctbr_seed0/README.md`, `models/motors_seed0/README.md`). The development history (runs 1–14), every check and every run are in `Documentation/CHANGELOG_EXPERIMENTS.md` and `Logs/MTR_PPO/`.

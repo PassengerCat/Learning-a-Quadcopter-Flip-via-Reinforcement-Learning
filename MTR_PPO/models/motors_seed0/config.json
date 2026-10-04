@@ -1,15 +1,7 @@
 {
-  "action_mode": "ctbr",
+  "action_mode": "motors",
   "action_repeat": 4,
-  "ctbr": {
-    "rate_max_rp": 20.0,
-    "rate_max_yaw": 4.0,
-    "kp_rate": [
-      18.0,
-      18.0,
-      8.0
-    ]
-  },
+  "ctbr": null,
   "quad_model": {
     "mass": 1.2,
     "g": 9.81,
@@ -33,7 +25,7 @@
   "radius": 0.6,
   "eval_omega": 5.0,
   "env_kwargs": {
-    "action_mode": "ctbr",
+    "action_mode": "motors",
     "episode_seconds": 6.0,
     "omega_range": [
       4.5,
@@ -54,11 +46,11 @@
     "axis_penalty": 2.0
   },
   "args": {
-    "action_mode": "ctbr",
+    "action_mode": "motors",
     "timesteps": 3000000,
     "n_envs": 11,
     "seed": 0,
-    "tag": "mtr_ctbr_clean",
+    "tag": "mtr_motors_clean",
     "logdir": "<repo>\\MTR_PPO\\runs",
     "episode_seconds": 6.0,
     "omega_min": 4.5,
